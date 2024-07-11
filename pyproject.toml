@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "faststream-template"
+version = "0.1.0"
+description = ""
+authors = ["Selix <asel1x@icloud.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+faststream = {extras = ["rabbit"], version = "^0.5.14"}
+dishka = "^1.2.0"
+litestar = "^2.9.1"
+alembic = "^1.13.2"
+pydantic-settings = "^2.3.4"
+fastapi = "^0.111.0"
+sqlmodel = "^0.0.19"
+passlib = "^1.7.4"
+asyncpg = "^0.29.0"
+greenlet = "^3.0.3"
+bcrypt = "4.0.1"
+python-jose = "^3.3.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
