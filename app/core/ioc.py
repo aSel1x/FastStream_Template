@@ -1,18 +1,14 @@
-from typing import AsyncIterable, Annotated
+from typing import AsyncIterable
 
-from fastapi import Depends as FromFastapi
-from fastapi.security import APIKeyHeader
-from dishka import Provider, Scope, provide, from_context
-from sqlmodel.ext.asyncio.session import AsyncSession
+from dishka import Provider, Scope, from_context, provide
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import Config
 from app.core.database import new_session_maker
 from app.core.security import Security
-
 from app.repositories import Repositories
 from app.services import Services
-from app.models import user
 
 
 class AppProvider(Provider):

@@ -15,19 +15,20 @@ help:
 
 
 .PHONY: ref
-ref: poetry run pre-commit run --all-files
+ref:
+	poetry run pre-commit run --all-files
 
 .PHONY: amqp
 amqp:
-	faststream run --factory app:get_faststream_app --reload
+	poetry run faststream run --factory app:get_faststream_app --reload
 
 .PHONY: http
 http:
-	uvicorn --factory app:get_litestar_app --reload
+	poetry run uvicorn --factory app:get_litestar_app --reload
 
 .PHONY: run
 run:
-	uvicorn --factory app:get_app --reload
+	poetry run uvicorn --factory app:get_app --reload
 
 .PHONY: docker
 docker:
