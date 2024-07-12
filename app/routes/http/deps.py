@@ -2,13 +2,12 @@ from typing import Annotated
 
 from dishka.integrations.base import FromDishka
 from dishka.integrations.fastapi import inject
-
 from fastapi import Depends as FromFastAPI
 from fastapi.security import APIKeyHeader
 
 from app import models
-from app.services import Services
 from app.core.security import Security
+from app.services import Services
 
 
 @inject

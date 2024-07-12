@@ -1,5 +1,5 @@
-import uuid
 import datetime as dt
+import uuid
 from functools import partial
 
 from sqlalchemy import Column as saColumn

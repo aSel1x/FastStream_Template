@@ -1,5 +1,4 @@
 from faststream.rabbit import RabbitBroker
-
 from pydantic import AmqpDsn
 
 

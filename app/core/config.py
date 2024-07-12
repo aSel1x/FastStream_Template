@@ -1,4 +1,4 @@
-from pydantic import PostgresDsn, AmqpDsn
+from pydantic import AmqpDsn, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +29,7 @@ class Config(BaseSettings):
     @property
     def pg_dsn(self) -> PostgresDsn:
         return PostgresDsn.build(
-            scheme="postgresql+asyncpg",
+            scheme='postgresql+asyncpg',
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_HOST,
@@ -40,7 +40,7 @@ class Config(BaseSettings):
     @property
     def amqp_dsn(self) -> AmqpDsn:
         return AmqpDsn.build(
-            scheme="amqp",
+            scheme='amqp',
             username=self.AMQP_USERNAME,
             password=self.AMQP_PASSWORD,
             host=self.AMQP_HOST,

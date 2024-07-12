@@ -19,6 +19,7 @@ asyncpg = "^0.29.0"
 greenlet = "^3.0.3"
 bcrypt = "4.0.1"
 python-jose = "^3.3.0"
+pre-commit = "^3.7.1"
 
 
 [build-system]

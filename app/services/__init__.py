@@ -8,4 +8,4 @@ class Services:
         self.user = UserService(session)
 
 
-__all__ = ["Services"]
+__all__ = ['Services']

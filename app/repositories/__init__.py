@@ -8,4 +8,4 @@ class Repositories:
         self.user = UserRepository(session)
 
 
-__all__ = ["Repositories", ]
+__all__ = ['Repositories', ]
