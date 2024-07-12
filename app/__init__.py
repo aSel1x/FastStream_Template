@@ -42,7 +42,7 @@ def get_fastapi_app() -> FastAPI:
 
 def get_app():
     faststream_app = get_faststream_app()
-    fastapi_app: FastAPI = get_fastapi_app()
+    fastapi_app = get_fastapi_app()
 
     @asynccontextmanager
     async def fastapi_app_broker(_app: FastAPI):

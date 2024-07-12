@@ -1,10 +1,9 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import models
-from app.repositories.user import UserRepository
-
 from app.core import exps
 from app.core.security import Security
+from app.repositories.user import UserRepository
 
 
 class UserService:
@@ -31,12 +30,13 @@ class UserService:
         )
 
     async def retrieve_by_token(self, token: str, security: Security) -> models.User | None:
-        if payload := security.jwt.decode_token(token):
-            if not (
-                user := await self.db.retrieve_one(
-                    ident=payload.get('id')
-                )
-            ):
-                raise exps.USER_NOT_FOUND
-            else:
-                return user
+        if not (payload := security.jwt.decode_token(token)):
+            return None
+        if not (
+            user := await self.db.retrieve_one(
+                ident=payload.get('id')
+            )
+        ):
+            raise exps.USER_NOT_FOUND
+        else:
+            return user

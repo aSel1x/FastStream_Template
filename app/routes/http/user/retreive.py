@@ -1,18 +1,17 @@
-from fastapi import APIRouter
-
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.fastapi import inject
+from fastapi import APIRouter
 
 from app import models
-from app.services import Services
 from app.core.security import Security
+from app.services import Services
 
 from .. import deps
 
 router = APIRouter()
 
 
-@router.post("/auth", response_model=models.UserAuth)
+@router.post('/auth', response_model=models.UserAuth)
 @inject
 async def user_auth(
         data: models.UserCreate,
@@ -27,7 +26,7 @@ async def user_auth(
     )
 
 
-@router.get("/", response_model=models.UserBase)
+@router.get('/', response_model=models.UserBase)
 @inject
 async def user_retrieve(
         user: deps.CurrentUser
