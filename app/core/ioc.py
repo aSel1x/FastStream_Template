@@ -1,14 +1,13 @@
-from typing import AsyncIterable, AsyncGenerator
+from typing import AsyncGenerator, AsyncIterable
 
 from dishka import Provider, Scope, from_context, provide
+from faststream.rabbit import RabbitBroker
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from faststream.rabbit import RabbitBroker
-
+from app.core.broker import new_broker
 from app.core.config import Config
 from app.core.database import new_session_maker
-from app.core.broker import new_broker
 from app.core.security import Security
 from app.repositories import Repositories
 from app.services import Services

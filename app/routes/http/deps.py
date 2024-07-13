@@ -6,8 +6,8 @@ from fastapi import Depends as FromFastAPI
 from fastapi.security import APIKeyHeader
 
 from app import models
-from app.services import Services
 from app.core.security import Security
+from app.services import Services
 
 
 @inject
