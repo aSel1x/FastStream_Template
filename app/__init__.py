@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import ParamSpec, AsyncGenerator
 
 from dishka import make_async_container
 from dishka.integrations import faststream as faststream_integration
@@ -25,7 +26,7 @@ def get_faststream_app() -> FastStream:
     return faststream_app
 
 
-def get_fastapi_app(lifespan=None) -> FastAPI:
+def get_fastapi_app(lifespan: ParamSpec | None = None) -> FastAPI:
     fastapi_app = FastAPI(
         title=config.APP_TITLE,
         root_path=config.APP_PATH,
@@ -47,7 +48,7 @@ def get_app():
     faststream_app = get_faststream_app()
 
     @asynccontextmanager
-    async def faststream_lifespan(_app: FastAPI):
+    async def faststream_lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         await faststream_app.broker.start()
         yield
         await faststream_app.broker.close()
