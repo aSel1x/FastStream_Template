@@ -6,8 +6,8 @@ from fastapi import Depends as FromFastAPI
 from fastapi.security import APIKeyHeader
 
 from app import models
-from app.core.security import Security
 from app.services import Services
+from app.core.security import Security
 
 
 @inject
@@ -17,6 +17,5 @@ async def get_current_user(
     security: FromDishka[Security],
 ) -> models.User | None:
     return await services.user.retrieve_by_token(token, security)
-
 
 CurrentUser = Annotated[models.User, FromFastAPI(get_current_user)]

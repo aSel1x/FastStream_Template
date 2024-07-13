@@ -24,7 +24,7 @@ amqp:
 
 .PHONY: http
 http:
-	poetry run uvicorn --factory app:get_litestar_app --reload
+	poetry run uvicorn --factory app:get_fastapi_app --reload
 
 .PHONY: run
 run:

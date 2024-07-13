@@ -1,22 +1,19 @@
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
+from faststream.rabbit import RabbitBroker
 
 from app import models
-from app.core.security import Security
-from app.services import Services
 
 router = APIRouter()
 
 
-@router.post('/', response_model=models.UserBase)
+@router.post('/')
 @inject
 async def user_create(
         data: models.UserCreate,
-        services: Depends[Services],
-        security: Depends[Security]
-
-) -> models.UserBase:
+        broker: Depends[RabbitBroker]
+) -> None:
     """Create new user"""
 
-    return await services.user.create(data, security)
+    await broker.publish(data, "create_user")
