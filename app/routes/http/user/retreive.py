@@ -3,8 +3,8 @@ from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
 
 from app import models
-from app.services import Services
 from app.core.security import Security
+from app.services import Services
 
 from .. import deps
 

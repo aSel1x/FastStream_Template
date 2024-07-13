@@ -16,4 +16,4 @@ async def user_create(
 ) -> None:
     """Create new user"""
 
-    await broker.publish(data, "create_user")
+    await broker.publish(data, 'create_user')
