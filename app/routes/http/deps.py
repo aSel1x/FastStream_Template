@@ -6,6 +6,7 @@ from fastapi import Depends as FromFastAPI
 from fastapi.security import APIKeyHeader
 
 from app import models
+from app.core import exps
 from app.core.security import Security
 from app.services import Services
 
@@ -16,6 +17,8 @@ async def get_current_user(
     services: FromDishka[Services],
     security: FromDishka[Security],
 ) -> models.User | None:
-    return await services.user.retrieve_by_token(token, security)
+    if user := await services.user.retrieve_by_token(token, security):
+        return user
+    raise exps.USER_NOT_FOUND
 
 CurrentUser = Annotated[models.User, FromFastAPI(get_current_user)]
