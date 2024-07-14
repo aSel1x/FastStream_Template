@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import ParamSpec, AsyncGenerator
+from typing import ParamSpec, AsyncGenerator, Any
 
 from dishka import make_async_container
 from dishka.integrations import faststream as faststream_integration
@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from app.core.config import Config
 from app.core.ioc import AppProvider
 from app.core.broker import new_broker
+from app.core.exps import exception_handler, HTTPException
 
 from app.routes import http, amqp
 
@@ -36,7 +37,8 @@ def get_fastapi_app(lifespan: ParamSpec | None = None) -> FastAPI:
             'url': 'https://asel1x.github.io',
             'email': 'asel1x@icloud.com',
         },
-        lifespan=lifespan
+        lifespan=lifespan,
+        exception_handlers={HTTPException: exception_handler}
     )
     fastapi_integration.setup_dishka(container, fastapi_app)
     fastapi_app.include_router(http.router)

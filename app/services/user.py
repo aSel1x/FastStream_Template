@@ -11,13 +11,13 @@ class UserService:
     def __init__(self, session: AsyncSession):
         self.db = UserRepository(session)
 
-    async def create(self, user: models.UserCreate, security: Security) -> models.UserBase:
+    async def create(self, user: models.UserCreate, security: Security) -> models.User:
         if await self.db.retrieve_by_username(user.username):
             raise exps.USER_EXISTS
 
         user.password = security.pwd.hashpwd(user.password)
         user = await self.db.create(models.User(**user.model_dump()))
-        return models.UserBase(**user.model_dump())
+        return user
 
     async def auth(self, username: str, password: str, security: Security) -> models.UserAuth:
         if not (user := await self.db.retrieve_by_username(username)):
@@ -30,13 +30,10 @@ class UserService:
         )
 
     async def retrieve_by_token(self, token: str, security: Security) -> models.User | None:
-        if not (payload := security.jwt.decode_token(token)):
+        if (payload := security.jwt.decode_token(token)) is None:
             return None
-        if not (
-            user := await self.db.retrieve_one(
-                ident=payload.get('id')
-            )
-        ):
-            raise exps.USER_NOT_FOUND
-        else:
-            return user
+        if (ident := payload.get('id')) is None:
+            return None
+        if (user := await self.db.retrieve_one(ident=ident)) is None:
+            return None
+        return user
