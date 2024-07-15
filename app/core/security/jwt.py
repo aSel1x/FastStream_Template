@@ -2,7 +2,7 @@ import datetime as dt
 
 from jose import jwt
 
-from app.core import exps
+from app.core import exception
 
 
 class JWT:
@@ -13,11 +13,11 @@ class JWT:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
         except jwt.JWTError:
-            raise exps.TOKEN_INVALID
+            raise exception.TOKEN_INVALID
 
         exp = payload.get('exp')
         if exp and dt.datetime.now(dt.UTC).timestamp() > exp:
-            raise exps.TOKEN_EXPIRED
+            raise exception.TOKEN_EXPIRED
         return payload.get('payload')
 
     def encode_token(self, payload: dict, minutes: int) -> str:
