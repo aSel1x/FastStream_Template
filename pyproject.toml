@@ -7,20 +7,18 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-faststream = {extras = ["rabbit"], version = "^0.5.14"}
-dishka = "^1.2.0"
-litestar = "^2.9.1"
-alembic = "^1.13.2"
-pydantic-settings = "^2.3.4"
-fastapi = "^0.111.0"
+fastapi = "^0.111.1"
 sqlmodel = "^0.0.19"
-passlib = "^1.7.4"
-asyncpg = "^0.29.0"
+faststream = {extras = ["rabbit"], version = "^0.5.14"}
+alembic = "^1.13.2"
+pyjwt = "^2.8.0"
+dishka = "^1.2.0"
 greenlet = "^3.0.3"
-bcrypt = "4.0.1"
-python-jose = "^3.3.0"
-pre-commit = "^3.7.1"
+pydantic-settings = "^2.3.4"
 loguru = "^0.7.2"
+bcrypt = "^4.1.3"
+asyncpg = "^0.29.0"
+pre-commit = "^3.7.1"
 
 
 [build-system]
