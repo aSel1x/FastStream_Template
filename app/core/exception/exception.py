@@ -4,7 +4,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from faststream import BaseMiddleware
-from faststream.rabbit.annotations import RabbitMessage
+from faststream.rabbit.message import RabbitMessage
 
 from .status import HTTPStatus
 
