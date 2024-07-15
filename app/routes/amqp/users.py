@@ -19,9 +19,9 @@ async def users(
         services: Depends[Services],
         security: Depends[Security]
 ):
-    logger.info(f"User {data.username} created")
     user = await services.user.create(
         user=data,
         security=security
     )
+    logger.info(f"User {data.username} created")
     return user
