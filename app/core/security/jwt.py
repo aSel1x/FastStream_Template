@@ -1,6 +1,6 @@
 import datetime as dt
 
-import jwt
+from jose import jwt
 
 from app.core import exception
 
@@ -12,7 +12,7 @@ class JWT:
     def decode_token(self, token: str) -> dict | None:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-        except jwt.exceptions.PyJWTError:
+        except jwt.JWTError:
             raise exception.TOKEN_INVALID
 
         exp = payload.get('exp')

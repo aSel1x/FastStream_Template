@@ -1,10 +1,12 @@
-from typing import Any, Awaitable, Callable
+from typing import Callable, Any, Awaitable
+
+from loguru import logger
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+
 from faststream import BaseMiddleware
 from faststream.rabbit.message import RabbitMessage
-from loguru import logger
 
 from .status import HTTPStatus
 

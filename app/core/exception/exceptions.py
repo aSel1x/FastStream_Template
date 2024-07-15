@@ -1,5 +1,6 @@
-from app.core.exception.exception import AppException
 from app.core.exception.status import HTTPStatus
+from app.core.exception.exception import AppException
+
 
 # User
 USER_EXISTS = AppException(HTTPStatus.CONFLICT, 'User is already taken.')
