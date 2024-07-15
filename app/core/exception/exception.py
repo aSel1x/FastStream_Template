@@ -1,5 +1,7 @@
 from typing import Callable, Any, Awaitable
 
+from loguru import logger
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -13,6 +15,10 @@ class AppException(Exception):
     def __init__(self, status_code: int, detail: str | None):
         self.status_code = status_code
         self.detail = detail or HTTPStatus(status_code).phrase  # type: ignore
+
+    def __repr__(self) -> str:
+        class_name = self.__class__.__name__
+        return f"{class_name}(status_code={self.status_code}, detail={self.detail})"
 
 
 def fastapi_exception_handler(_r: Request, exception: AppException):
@@ -29,10 +35,15 @@ class FastStreamExceptionHandler(BaseMiddleware):
             msg: RabbitMessage,
     ) -> Any:
         try:
-            response = await call_next(msg)
+            return await call_next(msg)
         except AppException as e:
-            response = dict(status_code=e.status_code, content={"detail": e.detail})
+            response = e.__dict__
         except Exception as e:
-            response = dict(status_code=500, content={"detail": e.__str__()})
+            response = AppException(
+                status_code=500,
+                detail=e.__str__()
+            ).__dict__
+
+        logger.error(response)
         await msg.nack(requeue=False)
         return response
