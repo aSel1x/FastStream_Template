@@ -11,7 +11,11 @@ from fastapi import FastAPI
 from app.core.config import Config
 from app.core.ioc import AppProvider
 from app.core.broker import new_broker
-from app.core.exception.http import HTTPException, fastapi_exception_handler
+from app.core.exception.exception import (
+    AppException,
+    fastapi_exception_handler,
+    FastStreamExceptionHandler
+)
 
 from app.routes import http, amqp
 
@@ -24,6 +28,7 @@ def get_faststream_app() -> FastStream:
     faststream_app = FastStream(broker)
     faststream_integration.setup_dishka(container, faststream_app, auto_inject=True)
     broker.include_router(amqp.router)
+    broker.add_middleware(FastStreamExceptionHandler)
     return faststream_app
 
 
@@ -38,7 +43,7 @@ def get_fastapi_app(lifespan: ParamSpec | None = None) -> FastAPI:
             'email': 'asel1x@icloud.com',
         },
         lifespan=lifespan,
-        exception_handlers={HTTPException: fastapi_exception_handler}
+        exception_handlers={AppException: fastapi_exception_handler}
     )
     fastapi_integration.setup_dishka(container, fastapi_app)
     fastapi_app.include_router(http.router)
