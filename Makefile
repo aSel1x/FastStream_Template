@@ -20,7 +20,7 @@ ref:
 
 .PHONY: amqp
 amqp:
-	poetry run faststream run --factory app:get_faststream_app --reload
+	poetry run taskiq scheduler app:scheduler
 
 .PHONY: http
 http:

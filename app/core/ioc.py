@@ -1,7 +1,9 @@
 from typing import AsyncGenerator, AsyncIterable
 
 from dishka import Provider, Scope, from_context, provide
+from fastapi import FastAPI
 from faststream.rabbit import RabbitBroker
+from taskiq_faststream import AppWrapper, StreamScheduler
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,6 +17,9 @@ from app.services import Services
 
 class AppProvider(Provider):
     config = from_context(provides=Config, scope=Scope.APP)
+    fastapi_app = from_context(provides=Config, scope=Scope.APP)
+    taskiq_faststream = from_context(provides=AppWrapper, scope=Scope.APP)
+    taskiq_faststream_scheduler = from_context(provides=StreamScheduler, scope=Scope.APP)
 
     @provide(scope=Scope.APP)
     def get_session_maker(self, config: Config) -> async_sessionmaker[AsyncSession]:
@@ -24,13 +29,6 @@ class AppProvider(Provider):
     async def get_session(self, session_maker: async_sessionmaker[AsyncSession]) -> AsyncIterable[AsyncSession]:
         async with session_maker() as session:
             yield session
-
-    @provide(scope=Scope.APP)
-    async def get_broker(self, config: Config) -> AsyncGenerator[RabbitBroker, None]:
-        broker = new_broker(config.amqp_dsn)
-        await broker.connect()
-        yield broker
-        await broker.close()
 
     repositories = provide(
         Repositories,
