@@ -10,14 +10,14 @@ from app.services import Services
 router = RabbitRouter()
 
 
-@router.subscriber('create_user')
-@router.publisher('user_status')
+@router.subscriber('create_user', 'users')
+@router.publisher('user_status', 'users')
 @inject
 async def users(
         data: models.UserCreate,
         logger: Logger,
         services: Depends[Services],
-        security: Depends[Security]
+        security: Depends[Security],
 ):
     user = await services.user.create(
         user=data,
