@@ -20,15 +20,11 @@ ref:
 
 .PHONY: amqp
 amqp:
-	poetry run taskiq scheduler app:scheduler
+	poetry run taskiq scheduler app:faststream
 
 .PHONY: http
 http:
-	poetry run uvicorn --factory app:get_fastapi_app --reload
-
-.PHONY: run
-run:
-	poetry run uvicorn --factory app:get_app --reload
+	poetry run uvicorn app:fastapi --reload
 
 .PHONY: docker
 docker:
