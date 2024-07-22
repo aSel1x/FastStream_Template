@@ -3,25 +3,23 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from dishka import make_async_container
-from dishka.integrations import faststream as faststream_integration
 from dishka.integrations import fastapi as fastapi_integration
-
+from dishka.integrations import faststream as faststream_integration
 from fastapi import FastAPI
 from faststream import FastStream
 from faststream.rabbit import RabbitBroker
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_faststream import AppWrapper, StreamScheduler
 
-from app.core.config import Config
-from app.core.ioc import AppProvider
 from app.core.broker import new_broker
+from app.core.config import Config
 from app.core.exception.exception import (
     AppException,
+    FastStreamExceptionHandler,
     fastapi_exception_handler,
-    FastStreamExceptionHandler
 )
-
-from app.routes import http, amqp
+from app.core.ioc import AppProvider
+from app.routes import amqp, http
 
 os.environ['TZ'] = 'UTC'
 config = Config()

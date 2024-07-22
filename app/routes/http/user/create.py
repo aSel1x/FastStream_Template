@@ -12,7 +12,7 @@ router = APIRouter()
 @inject
 async def user_create(
         data: models.UserCreate,
-        broker: Depends[RabbitBroker]
+        broker: Depends[RabbitBroker],
 ) -> None:
     """Create new user"""
 
