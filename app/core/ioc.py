@@ -8,7 +8,6 @@ from app.core.config import Config
 from app.core.database import new_session_maker
 from app.repositories import Repositories
 from app.usecases import Services
-from app.usecases.security import Security
 
 
 class AppProvider(Provider):
@@ -32,7 +31,3 @@ class AppProvider(Provider):
         Services,
         scope=Scope.REQUEST,
     )
-
-    @provide(scope=Scope.APP)
-    def get_security(self, config: Config) -> Security:
-        return Security(config)
