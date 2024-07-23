@@ -4,8 +4,8 @@ from faststream.rabbit import RabbitRouter
 from faststream.rabbit.annotations import Logger
 
 from app import models
-from app.core.security import Security
-from app.services import Services
+from app.usecases import Services
+from app.usecases.security import Security
 
 router = RabbitRouter()
 

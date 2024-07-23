@@ -1,4 +1,4 @@
-from typing import AsyncIterable
+from collections.abc import AsyncIterable
 
 from dishka import Provider, Scope, from_context, provide
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -6,9 +6,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import Config
 from app.core.database import new_session_maker
-from app.core.security import Security
 from app.repositories import Repositories
-from app.services import Services
+from app.usecases import Services
+from app.usecases.security import Security
 
 
 class AppProvider(Provider):

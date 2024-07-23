@@ -1,6 +1,6 @@
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from dishka import make_async_container
 from dishka.integrations import fastapi as fastapi_integration
@@ -11,22 +11,16 @@ from faststream.rabbit import RabbitBroker
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_faststream import AppWrapper, StreamScheduler
 
+from app.controllers import amqp, http
 from app.core.broker import new_broker
 from app.core.config import Config
-from app.core.exception.exception import (
-    AppException,
-    FastStreamExceptionHandler,
-    fastapi_exception_handler,
-)
 from app.core.ioc import AppProvider
-from app.routes import amqp, http
 
 os.environ['TZ'] = 'UTC'
 config = Config()
 
 broker = new_broker(config.amqp_dsn)
 broker.include_router(amqp.router)
-broker.add_middleware(FastStreamExceptionHandler)
 
 faststream_app = FastStream(broker)
 
@@ -55,10 +49,9 @@ fastapi_app = FastAPI(
         'email': 'asel1x@icloud.com',
     },
     lifespan=faststream_lifespan,
-    exception_handlers={AppException: fastapi_exception_handler}
 )
 fastapi_app.include_router(http.router)
-
+http.setup(fastapi_app)
 
 container = make_async_container(
     AppProvider(),
