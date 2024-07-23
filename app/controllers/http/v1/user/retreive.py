@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from app import models
 from app.controllers.http import deps
 from app.usecases import Services
-from app.usecases.security import Security
 
 router = APIRouter()
 
@@ -15,12 +14,11 @@ router = APIRouter()
 async def user_auth(
         data: models.UserCreate,
         services: Depends[Services],
-        security: Depends[Security],
 ) -> models.UserAuth:
     return await services.user.auth(
         username=data.username,
         password=data.password,
-        security=security
+        security=services.security
     )
 
 
