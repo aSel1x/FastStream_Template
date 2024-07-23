@@ -11,11 +11,9 @@
     `poetry install` or `pip install -r requirements.txt`
 2. Run application.
 
-    `make run`
-
-### To run the HTTP and AMQP separately, use follow commands:
-
-`make http` and `make amqp`
+   `make http` for start HTTP application
+   
+   `make amqp` for start AMQP application
 
 ### Make documentation:
 `make help`

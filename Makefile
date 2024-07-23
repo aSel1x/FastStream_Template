@@ -7,7 +7,6 @@ help:
 	@echo "  ref		Reformat code"
 	@echo "  amqp		Start the AMQP"
 	@echo "  http		Start the HTTP"
-	@echo "  run		Start the app"
 	@echo "  docker		Docker container build"
 	@echo "  migrate	Alembic migrate database"
 	@echo "  generate	Alembic generate database"
