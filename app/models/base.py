@@ -5,7 +5,7 @@ from functools import partial
 from sqlalchemy import Column as saColumn
 from sqlmodel import Field, SQLModel
 
-from app import types
+from . import types
 
 datetime_utcnow = partial(dt.datetime.now, tz=dt.UTC)
 
