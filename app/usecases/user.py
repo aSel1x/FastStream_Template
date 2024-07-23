@@ -2,8 +2,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import models
 from app.core import exception
-from app.core.security import Security
 from app.repositories.user import UserRepository
+from app.usecases.security import Security
 
 
 class UserService:
@@ -13,7 +13,7 @@ class UserService:
 
     async def create(self, user: models.UserCreate, security: Security) -> models.User:
         if await self.db.retrieve_by_username(user.username):
-            raise exception.USER_EXISTS
+            raise exception.user.UsernameTaken
 
         user.password = security.pwd.hashpwd(user.password)
         user = await self.db.create(models.User(**user.model_dump()))
@@ -21,9 +21,9 @@ class UserService:
 
     async def auth(self, username: str, password: str, security: Security) -> models.UserAuth:
         if not (user := await self.db.retrieve_by_username(username)):
-            raise exception.USER_NOT_FOUND
+            raise exception.user.NotFound
         if not security.pwd.checkpwd(password, user.password):
-            raise exception.USER_IS_CORRECT
+            raise exception.user.PasswordWrong
 
         return models.UserAuth(
             token=security.jwt.encode_token({'id': user.id}, 1440)
@@ -35,5 +35,5 @@ class UserService:
         if (ident := payload.get('id')) is None:
             return None
         if (user := await self.db.retrieve_one(ident=ident)) is None:
-            return None
+            raise exception.user.NotFound
         return user
