@@ -1,6 +1,6 @@
 import abc
-from typing import Generic, TypeVar
 from collections.abc import Sequence
+from typing import Generic, TypeVar
 
 import sqlmodel as sm
 from sqlmodel.ext.asyncio.session import AsyncSession
