@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 
 from app import models
 from app.core import exception
-from app.usecases.security import Security
 
 if TYPE_CHECKING:
     from app.usecases import Services

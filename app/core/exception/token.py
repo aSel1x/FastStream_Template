@@ -1,6 +1,4 @@
-from .base import (
-    UnauthorizedException,
-)
+from .base import UnauthorizedException
 
 
 class TokenInvalid(UnauthorizedException):

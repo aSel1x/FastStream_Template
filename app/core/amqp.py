@@ -1,7 +1,7 @@
 from faststream import FastStream
 from faststream.broker.core.usecase import BrokerUsecase
-from taskiq_faststream import AppWrapper, StreamScheduler
 from taskiq.schedule_sources import LabelScheduleSource
+from taskiq_faststream import AppWrapper, StreamScheduler
 
 from .broker import RabbitBroker
 

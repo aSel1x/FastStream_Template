@@ -7,8 +7,9 @@ from dishka.integrations import fastapi as fastapi_integration
 from dishka.integrations import faststream as faststream_integration
 from fastapi import FastAPI
 from faststream.rabbit import RabbitBroker
+from taskiq_faststream import StreamScheduler
 
-from app.controllers import http, amqp
+from app.controllers import amqp, http
 from app.core.amqp import AppAMQP
 from app.core.config import Config
 from app.core.ioc import AppProvider
@@ -53,7 +54,7 @@ container = make_async_container(
 )
 
 
-def get_amqp_worker() -> amqp_app.taskiq_scheduler:
+def get_amqp_worker() -> StreamScheduler:
     faststream_integration.setup_dishka(container, amqp_app.faststream_app)
     return amqp_app.taskiq_scheduler
 

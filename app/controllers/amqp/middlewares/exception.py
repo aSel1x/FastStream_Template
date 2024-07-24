@@ -1,8 +1,9 @@
-from typing import Callable, Any, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from loguru import logger
 from faststream import BaseMiddleware
 from faststream.rabbit.annotations import RabbitMessage
+from loguru import logger
 
 from app.core.exception.base import CustomException
 

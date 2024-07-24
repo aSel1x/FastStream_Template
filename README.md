@@ -12,7 +12,7 @@
 2. Run application.
 
    `make http` for start HTTP application
-   
+
    `make amqp` for start AMQP application
 
 ### Make documentation:
