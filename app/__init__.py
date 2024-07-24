@@ -1,7 +1,7 @@
-from .main import get_fastapi_app
-from .main import get_faststream_app
+from .main import get_amqp_worker
+from .main import get_http_worker
 
-fastapi = get_fastapi_app()
-faststream = get_faststream_app()
+fastapi = get_http_worker()
+faststream = get_amqp_worker()
 
 __all__ = ["fastapi", "faststream"]

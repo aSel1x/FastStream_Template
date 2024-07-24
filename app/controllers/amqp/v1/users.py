@@ -19,7 +19,6 @@ async def users(
 ):
     user = await services.user.create(
         user=data,
-        security=services.security
     )
     logger.info(f"User {data.username} created")
     return user

@@ -6,30 +6,20 @@ from dishka import make_async_container
 from dishka.integrations import fastapi as fastapi_integration
 from dishka.integrations import faststream as faststream_integration
 from fastapi import FastAPI
-from faststream import FastStream
 from faststream.rabbit import RabbitBroker
-from taskiq.schedule_sources import LabelScheduleSource
-from taskiq_faststream import AppWrapper, StreamScheduler
 
-from app.controllers import amqp, http
-from app.core.broker import new_broker
+from app.controllers import http, amqp
+from app.core.amqp import AppAMQP
 from app.core.config import Config
 from app.core.ioc import AppProvider
 
 os.environ['TZ'] = 'UTC'
-config = Config()
 
-broker = new_broker(config.amqp_dsn)
+config = Config()
+broker = RabbitBroker(config.amqp_dsn.unicode_string())
 broker.include_router(amqp.router)
 
-faststream_app = FastStream(broker)
-
-taskiq_faststream_app = AppWrapper(faststream_app)
-
-taskiq_faststream_scheduler = StreamScheduler(
-    taskiq_faststream_app,
-    [LabelScheduleSource(taskiq_faststream_app)]
-)
+amqp_app = AppAMQP(broker)
 
 
 @asynccontextmanager
@@ -51,25 +41,23 @@ fastapi_app = FastAPI(
     lifespan=faststream_lifespan,
 )
 fastapi_app.include_router(http.router)
-http.setup(fastapi_app)
+http.setup_handlers(fastapi_app)
 
 container = make_async_container(
     AppProvider(),
     context={
         Config: config,
         FastAPI: fastapi_app,
-        RabbitBroker: broker,
-        AppWrapper: taskiq_faststream_app,
-        StreamScheduler: taskiq_faststream_scheduler
+        AppAMQP: amqp_app
     }
 )
 
 
-def get_faststream_app() -> StreamScheduler:
-    faststream_integration.setup_dishka(container, faststream_app)
-    return taskiq_faststream_scheduler
+def get_amqp_worker() -> amqp_app.taskiq_scheduler:
+    faststream_integration.setup_dishka(container, amqp_app.faststream_app)
+    return amqp_app.taskiq_scheduler
 
 
-def get_fastapi_app() -> FastAPI:
+def get_http_worker() -> FastAPI:
     fastapi_integration.setup_dishka(container, fastapi_app)
     return fastapi_app
