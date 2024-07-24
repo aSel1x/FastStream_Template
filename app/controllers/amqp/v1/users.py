@@ -5,7 +5,6 @@ from faststream.rabbit.annotations import Logger
 
 from app import models
 from app.usecases import Services
-from app.usecases.security import Security
 
 router = RabbitRouter()
 
@@ -17,11 +16,10 @@ async def users(
         data: models.UserCreate,
         logger: Logger,
         services: Depends[Services],
-        security: Depends[Security],
 ):
     user = await services.user.create(
         user=data,
-        security=security
+        security=services.security
     )
     logger.info(f"User {data.username} created")
     return user
