@@ -15,9 +15,9 @@ dnspython==2.6.1
 email-validator==2.2.0
 fast-depends==2.4.6
 fastapi-cli==0.0.4
-fastapi==0.111.1
-faststream==0.5.14
-faststream[rabbit]==0.5.14
+fastapi[all]==0.111.1
+faststream==0.5.15
+faststream[rabbit]==0.5.15
 filelock==3.15.4
 greenlet==3.0.3
 h11==0.14.0
@@ -27,6 +27,7 @@ httpx==0.27.0
 identify==2.6.0
 idna==3.7
 importlib-metadata==8.0.0
+itsdangerous==2.2.0
 jinja2==3.1.4
 loguru==0.7.2
 mako==1.3.5
@@ -35,12 +36,14 @@ markupsafe==2.1.5
 mdurl==0.1.2
 multidict==6.0.5
 nodeenv==1.9.1
+orjson==3.10.6
 packaging==24.1
 pamqp==3.3.0
 platformdirs==4.2.2
 pre-commit==3.7.1
 pycron==3.0.0
 pydantic-core==2.20.1
+pydantic-extra-types==2.9.0
 pydantic-settings==2.3.4
 pydantic==2.8.2
 pygments==2.18.0
@@ -60,7 +63,8 @@ taskiq-faststream==0.1.8
 taskiq==0.11.6
 typer==0.12.3
 typing-extensions==4.12.2
-uvicorn[standard]==0.30.1
+ujson==5.10.0
+uvicorn[standard]==0.30.3
 uvloop==0.19.0
 virtualenv==20.26.3
 watchfiles==0.22.0

@@ -53,7 +53,7 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
         return entity.all()
 
     async def update(self, model: AbstractIDModel) -> None:
-        stmt = sm.update(self.model).where(self.model.id == model.id).values(**model.model_dump())
+        stmt = sm.update(self.model).where(self.model.id == model.id).values(**model.model_dump(exclude_unset=True))
         await self.session.execute(stmt)
 
     async def delete(self, instance: AbstractModel) -> None:
