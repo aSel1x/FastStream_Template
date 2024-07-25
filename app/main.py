@@ -16,49 +16,54 @@ from app.core.ioc import AppProvider
 
 os.environ['TZ'] = 'UTC'
 
-config = Config()
-broker = RabbitBroker(config.amqp_dsn.unicode_string())
-broker.include_router(amqp.router)
 
-amqp_app = AppAMQP(broker)
+class App:
+    def __init__(self):
+        self.config = Config()
 
+        self.broker = self.get_broker()
+        self.amqp_app = AppAMQP(self.broker)
 
-@asynccontextmanager
-async def faststream_lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-    await broker.connect()
-    yield
-    await broker.close()
+        self.container = make_async_container(
+            AppProvider(),
+            context={
+                Config: self.config,
+                AppAMQP: self.amqp_app
+            }
+        )
 
+    def get_broker(self) -> RabbitBroker:
+        broker = RabbitBroker(self.config.amqp_dsn.unicode_string())
+        broker.include_router(amqp.router)
+        return broker
 
-fastapi_app = FastAPI(
-    title=config.APP_TITLE,
-    root_path=config.APP_PATH,
-    version=config.APP_VERSION,
-    contact={
-        'name': 'aSel1x',
-        'url': 'https://asel1x.github.io',
-        'email': 'asel1x@icloud.com',
-    },
-    lifespan=faststream_lifespan,
-)
-fastapi_app.include_router(http.router)
-http.setup_handlers(fastapi_app)
+    def get_fastapi_app(self) -> FastAPI:
+        @asynccontextmanager
+        async def faststream_lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+            await self.broker.connect()
+            yield
+            await self.broker.close()
 
-container = make_async_container(
-    AppProvider(),
-    context={
-        Config: config,
-        FastAPI: fastapi_app,
-        AppAMQP: amqp_app
-    }
-)
+        fastapi_app = FastAPI(
+            title=self.config.APP_TITLE,
+            root_path=self.config.APP_PATH,
+            version=self.config.APP_VERSION,
+            contact={
+                'name': 'aSel1x',
+                'url': 'https://asel1x.github.io',
+                'email': 'asel1x@icloud.com',
+            },
+            lifespan=faststream_lifespan,
+        )
+        fastapi_app.include_router(http.router)
+        http.setup_handlers(fastapi_app)
+        return fastapi_app
 
+    def get_amqp_worker(self) -> StreamScheduler:
+        faststream_integration.setup_dishka(self.container, self.amqp_app.faststream_app)
+        return self.amqp_app.taskiq_scheduler
 
-def get_amqp_worker() -> StreamScheduler:
-    faststream_integration.setup_dishka(container, amqp_app.faststream_app)
-    return amqp_app.taskiq_scheduler
-
-
-def get_http_worker() -> FastAPI:
-    fastapi_integration.setup_dishka(container, fastapi_app)
-    return fastapi_app
+    def get_http_worker(self) -> FastAPI:
+        http_app = self.get_fastapi_app()
+        fastapi_integration.setup_dishka(self.container, http_app)
+        return http_app
