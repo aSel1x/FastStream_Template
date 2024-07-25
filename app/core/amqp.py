@@ -1,6 +1,6 @@
 from faststream import FastStream
-from faststream.rabbit import RabbitBroker
 from faststream.broker.core.usecase import BrokerUsecase
+from faststream.rabbit import RabbitBroker
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_faststream import AppWrapper, StreamScheduler
 
