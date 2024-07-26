@@ -1,13 +1,11 @@
-version: '3.8'
+version: '3.6'
 
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     env_file:
       - .env
-    entrypoint: sh -c "alembic upgrade head && uvicorn app:fastapi --reload"
+    entrypoint: sh -c "uvicorn app:fastapi --host 0.0.0.0 --reload"
     volumes:
       - shared-volume:/app/generated_files
     networks:
@@ -21,11 +19,11 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      worker:
+        condition: service_started
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     entrypoint: sh -c "alembic upgrade head && taskiq scheduler app:faststream"
     volumes:
       - shared-volume:/app/generated_files
