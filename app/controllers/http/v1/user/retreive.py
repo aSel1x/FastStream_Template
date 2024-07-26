@@ -18,7 +18,6 @@ async def user_auth(
     return await services.user.auth(
         username=data.username,
         password=data.password,
-        security=services.security
     )
 
 
