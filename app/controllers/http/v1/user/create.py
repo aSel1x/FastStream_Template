@@ -1,6 +1,9 @@
+import datetime as dt
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
+from taskiq_faststream.types import ScheduledTask
+
 
 from app import models
 from app.core.amqp import AppAMQP
