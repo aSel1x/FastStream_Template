@@ -7,7 +7,7 @@ from .handlers import (
 from ...core.exception.base import CustomException
 
 
-def setup(_app: FastAPI):
+def setup_handlers(_app: FastAPI):
     _app.add_exception_handler(CustomException, fastapi_exception_handler)
 
 
