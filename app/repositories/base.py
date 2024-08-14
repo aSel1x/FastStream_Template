@@ -19,8 +19,7 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
     async def create(self, model: AbstractModel) -> AbstractModel:
         model = self.model.model_validate(model)
         self.session.add(model)
-        await self.session.commit()
-        await self.session.refresh(model)
+        await self.session.flush()
         return model
 
     async def retrieve_one(
@@ -53,10 +52,13 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
         return entity.all()
 
     async def update(self, model: AbstractIDModel) -> None:
-        stmt = sm.update(self.model).where(self.model.id == model.id).values(**model.model_dump(exclude_unset=True))
+        stmt = (
+            sm.update(self.model)
+            .where(self.model.id == model.id)
+            .values(**model.model_dump(exclude_unset=True))
+        )
         await self.session.execute(stmt)
 
     async def delete(self, instance: AbstractModel) -> None:
         await self.session.delete(instance)
         await self.session.flush()
-        await self.session.commit()

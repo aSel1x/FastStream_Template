@@ -10,7 +10,7 @@ from faststream.rabbit import RabbitBroker
 from taskiq_faststream import StreamScheduler
 
 from app.controllers import amqp, http
-from app.core.amqp import AppAMQP
+from app.adapters import AppAMQP
 from app.core.config import Config
 from app.core.ioc import AppProvider
 

@@ -1,14 +1,14 @@
 from .user import UserService
 from .security import Security
-from app.repositories import Repositories
+from app.adapters import Database
 
 from app.core.config import Config
 
 
 class Services:
-    def __init__(self, repositories: Repositories, config: Config):
+    def __init__(self, db: Database, config: Config):
         self.config = config
-        self.repos = repositories
+        self.db = db
 
         self.user = UserService(self)
         self.security = Security(config)
