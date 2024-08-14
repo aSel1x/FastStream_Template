@@ -1,4 +1,4 @@
-from .main import App
+from .app import App
 
 app = App()
 fastapi = app.get_http_worker()
