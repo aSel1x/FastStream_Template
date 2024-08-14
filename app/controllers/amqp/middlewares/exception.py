@@ -19,7 +19,6 @@ class FastStreamExceptionHandler(BaseMiddleware):
                 internal_code=0,
                 message=e.__str__()
             ).__dict__
-
         logger.error(response)
         await msg.nack(requeue=False)
         return response
