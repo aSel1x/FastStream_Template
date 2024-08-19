@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter
 
 from . import (
@@ -5,6 +7,8 @@ from . import (
     retreive,
 )
 
-router = APIRouter(prefix='/user', tags=['user'])
+FOLDER_NAME = Path(__file__).parent.name
+
+router = APIRouter(prefix='/' + FOLDER_NAME, tags=[FOLDER_NAME])
 router.include_router(create.router)
 router.include_router(retreive.router)

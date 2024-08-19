@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 
 from app import models
-from app.adapters import AppAMQP
+from app.adapters import AMQP
 
 router = APIRouter()
 
@@ -13,7 +13,7 @@ router = APIRouter()
 @inject
 async def user_create(
         data: models.UserCreate,
-        amqp: Depends[AppAMQP]
+        amqp: Depends[AMQP]
 ) -> None:
     """Create new user"""
 

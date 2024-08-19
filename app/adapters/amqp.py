@@ -8,7 +8,7 @@ from taskiq_faststream import AppWrapper, StreamScheduler
 from taskiq_faststream.types import ScheduledTask
 
 
-class AppAMQP:
+class AMQP:
     def __init__(self, broker: RabbitBroker):
         self.broker = broker
         self.faststream_app = FastStream(self.broker)

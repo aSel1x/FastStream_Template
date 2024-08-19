@@ -10,7 +10,7 @@ from faststream.rabbit import RabbitBroker
 from taskiq_faststream import StreamScheduler
 
 from app.controllers import amqp, http
-from app.adapters import AppAMQP
+from app.adapters import AMQP
 from app.core.config import Config
 from app.core.ioc import AppProvider
 
@@ -21,14 +21,13 @@ class App:
     def __init__(self):
         self.config = Config()
 
-        self.broker = self.get_broker()
-        self.amqp_app = AppAMQP(self.broker)
+        self.amqp_app = AMQP(self.get_broker())
 
         self.container = make_async_container(
             AppProvider(),
             context={
                 Config: self.config,
-                AppAMQP: self.amqp_app
+                AMQP: self.amqp_app
             }
         )
 
@@ -40,9 +39,9 @@ class App:
     def get_fastapi_app(self) -> FastAPI:
         @asynccontextmanager
         async def faststream_lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-            await self.broker.connect()
+            await self.amqp_app.broker.connect()
             yield
-            await self.broker.close()
+            await self.amqp_app.broker.close()
 
         fastapi_app = FastAPI(
             title=self.config.APP_TITLE,
