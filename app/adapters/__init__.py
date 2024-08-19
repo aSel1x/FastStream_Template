@@ -1,4 +1,4 @@
-from .amqp import AppAMQP
+from .amqp import AMQP
 from .db import Database
 
-__all__ = ["AppAMQP", "Database"]
+__all__ = ["AMQP", "Database"]

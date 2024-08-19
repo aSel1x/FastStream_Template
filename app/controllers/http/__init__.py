@@ -4,7 +4,7 @@ from .v1 import user
 from .handlers import (
     fastapi_exception_handler
 )
-from ...core.exception.base import CustomException
+from app.core.exception.base import CustomException
 
 
 def setup_handlers(_app: FastAPI):

@@ -4,7 +4,6 @@ from dishka import Provider, Scope, from_context, provide
 
 from app.core.config import Config
 from app.adapters import Database
-from app.repositories import Repositories
 from app.usecases import Services
 
 

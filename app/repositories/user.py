@@ -1,6 +1,6 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .. import models
+from app import models
 from .base import Repository
 
 
