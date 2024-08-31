@@ -5,8 +5,7 @@ help:
 	@echo ""
 	@echo "AVAILABLE COMMANDS"
 	@echo "  ref		Reformat code"
-	@echo "  amqp		Start the AMQP"
-	@echo "  http		Start the HTTP"
+	@echo "  app		Start the application"
 	@echo "  docker		Docker container build"
 	@echo "  migrate	Alembic migrate database"
 	@echo "  generate	Alembic generate database"
@@ -17,13 +16,9 @@ help:
 ref:
 	poetry run pre-commit run --all-files
 
-.PHONY: amqp
-amqp:
-	poetry run taskiq scheduler app:faststream
-
-.PHONY: http
-http:
-	poetry run uvicorn app:fastapi --reload
+.PHONY: app
+app:
+	poetry run python -m app
 
 .PHONY: docker
 docker:

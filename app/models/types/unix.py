@@ -17,7 +17,6 @@ class Unixepoch(TypeDecorator):
             return int(dt.datetime.combine(value, dt.time.min).timestamp())
         elif isinstance(value, str):
             return int(dt.datetime.fromisoformat(value).timestamp())
-        return None
 
     def process_result_value(self, value: int, dialect) -> dt.datetime | None:
         if isinstance(value, int):
