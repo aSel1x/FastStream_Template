@@ -4,7 +4,7 @@ from app import models
 from .base import Repository
 
 
-class UserRepository(Repository[models.User]):
+class UserRepo(Repository[models.User]):
     def __init__(self, session: AsyncSession):
         super().__init__(model=models.User, session=session)
 

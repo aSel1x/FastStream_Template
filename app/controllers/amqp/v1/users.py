@@ -1,5 +1,6 @@
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.faststream import inject
+
 from faststream.rabbit import RabbitRouter
 from faststream.rabbit.annotations import Logger
 

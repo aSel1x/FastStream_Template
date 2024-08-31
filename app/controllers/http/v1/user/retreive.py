@@ -3,8 +3,8 @@ from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
 
 from app import models
-from app.controllers.http import deps
 from app.usecases import Services
+from app.controllers.http import deps
 
 router = APIRouter()
 

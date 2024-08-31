@@ -13,15 +13,16 @@ class UserService:
         self.service = service
 
     async def create(self, user: models.UserCreate) -> models.User:
-        if await self.service.db.user.retrieve_by_username(user.username):
+        if await self.service.adapters.postgres.user.retrieve_by_username(user.username):
             raise exception.user.UsernameTaken
 
         user.password = self.service.security.pwd.hashpwd(user.password)
-        user = await self.service.db.user.create(models.User(**user.model_dump()))
+        user = await self.service.adapters.postgres.user.create(models.User(**user.model_dump()))
+        await self.service.adapters.redis.user.create(user)
         return user
 
     async def auth(self, username: str, password: str) -> models.UserAuth:
-        if not (user := await self.service.db.user.retrieve_by_username(username)):
+        if not (user := await self.service.adapters.postgres.user.retrieve_by_username(username)):
             raise exception.user.NotFound
         if not self.service.security.pwd.checkpwd(password, user.password):
             raise exception.user.PasswordWrong
@@ -35,6 +36,8 @@ class UserService:
             return None
         if (ident := payload.get('id')) is None:
             return None
-        if (user := await self.service.db.user.retrieve_one(ident=ident)) is None:
-            raise exception.user.NotFound
-        return user
+        if (user := await self.service.adapters.redis.user.retrieve_one(ident=ident)) is not None:
+            return user
+        if (user := await self.service.adapters.postgres.user.retrieve_one(ident=ident)) is not None:
+            return user
+        raise exception.user.NotFound

@@ -7,8 +7,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = {extras = ["all"], version = "^0.111.1"}
-sqlmodel = "^0.0.19"
+fastapi = {extras = ["all"], version = "^0.112.2"}
+sqlmodel = "^0.0.22"
 faststream = {extras = ["rabbit"], version = "^0.5.14"}
 alembic = "^1.13.2"
 pyjwt = "^2.8.0"
@@ -20,7 +20,8 @@ bcrypt = "^4.1.3"
 asyncpg = "^0.29.0"
 pre-commit = "^3.7.1"
 taskiq = "^0.11.6"
-taskiq-faststream = "^0.1.8"
+taskiq-faststream = "^0.2.0"
+redis = "^5.0.8"
 
 
 [build-system]
