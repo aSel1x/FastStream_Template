@@ -33,7 +33,7 @@ class TimestampModel(SQLModel):
         sa_type=types.Unixepoch,
         nullable=False,
     )
-    updated_at: dt.datetime | int | str |None = Field(
+    updated_at: dt.datetime | int | str | None = Field(
         sa_column=saColumn(
             default=None,
             type_=types.Unixepoch,

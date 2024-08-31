@@ -3,8 +3,9 @@ Redis Database
 """
 
 from typing import Self
-from redis.asyncio import Redis
+
 from pydantic import RedisDsn
+from redis.asyncio import Redis
 
 from app.repositories import redis as repos
 
@@ -14,7 +15,7 @@ class RedisDB:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(RedisDB, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(
@@ -22,7 +23,7 @@ class RedisDB:
             redis_dsn: RedisDsn,
             client: Redis | None = None
     ) -> None:
-        if not hasattr(self, "initialized"):
+        if not hasattr(self, 'initialized'):
             self.__client = client
             self.__redis_dsn = redis_dsn
             self.initialized = True

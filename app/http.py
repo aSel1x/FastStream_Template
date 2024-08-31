@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.adapters.rabbitmq import AmqpQueue
-from app.core.config import Config
 from app.controllers import http
+from app.core.config import Config
 
 
 class FastAPIApp:

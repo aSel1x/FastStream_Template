@@ -1,8 +1,8 @@
 from taskiq_faststream import StreamScheduler
 
 from app.adapters.rabbitmq import AmqpQueue
-from app.core.config import Config
 from app.controllers import amqp
+from app.core.config import Config
 
 
 class FastStreamApp:

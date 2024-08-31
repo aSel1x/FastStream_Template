@@ -1,8 +1,8 @@
-from .user import UserService
-from .security import Security
 from app.adapters import Adapters
-
 from app.core.config import Config
+
+from .security import Security
+from .user import UserService
 
 
 class Services:

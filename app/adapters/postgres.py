@@ -1,12 +1,8 @@
 from typing import Self
 
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import PostgresDsn
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.repositories import postgres as repos
 

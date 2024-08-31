@@ -1,11 +1,11 @@
-from typing import AsyncIterable
+from collections.abc import AsyncIterable
+
 from dishka import Provider, Scope, from_context, provide
 
 from app.adapters import Adapters
 from app.adapters.postgres import PostgresDB
 from app.adapters.rabbitmq import AmqpQueue
 from app.adapters.redis import RedisDB
-
 from app.core.config import Config
 from app.usecases import Services
 

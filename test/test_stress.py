@@ -1,7 +1,8 @@
+import asyncio
 import random
 import string
-import asyncio
 import time
+
 from httpx import AsyncClient
 
 
@@ -13,10 +14,10 @@ def generate_random_string(length: int) -> str:
 async def make_request(client: AsyncClient) -> bool:
     try:
         r = await client.post(
-            "http://0.0.0.0/api/v1/user/",
+            'http://0.0.0.0/api/v1/user/',
             json={
-                "username": generate_random_string(10),
-                "password": generate_random_string(10)
+                'username': generate_random_string(10),
+                'password': generate_random_string(10)
             }
         )
         if r.status_code == 200:
@@ -52,5 +53,5 @@ async def main():
     print(f"Requests per second: {num_requests / duration:.2f}")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

@@ -1,3 +1,3 @@
 from .adapters import Adapters
 
-__all__ = ["Adapters"]
+__all__ = ['Adapters']
