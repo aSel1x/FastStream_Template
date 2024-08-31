@@ -1,11 +1,10 @@
 FROM python:3.12-slim
 
-WORKDIR .
+WORKDIR /code
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+RUN pip install poetry
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt --no-cache-dir
+COPY . /code/
 
-COPY . .
+RUN poetry config virtualenvs.create false
+RUN poetry install --no-interaction --no-ansi
