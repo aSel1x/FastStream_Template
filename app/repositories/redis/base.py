@@ -1,8 +1,8 @@
 import abc
 from typing import Generic, TypeVar
 
-from sqlmodel import SQLModel
 from redis.asyncio import Redis
+from sqlmodel import SQLModel
 
 from app.models.base import IDModel
 

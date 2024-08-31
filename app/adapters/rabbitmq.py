@@ -1,9 +1,9 @@
 import datetime as dt
 from typing import Any, Self
 
-from pydantic import AmqpDsn
 from faststream import FastStream
 from faststream.rabbit import RabbitBroker
+from pydantic import AmqpDsn
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_faststream import AppWrapper, StreamScheduler
 from taskiq_faststream.types import ScheduledTask
@@ -14,7 +14,7 @@ class AmqpQueue:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(AmqpQueue, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(
@@ -25,7 +25,7 @@ class AmqpQueue:
             taskiq_app: AppWrapper | None = None,
             scheduler: StreamScheduler | None = None
     ) -> None:
-        if not hasattr(self, "initialized"):
+        if not hasattr(self, 'initialized'):
             self.__amqp_dsn = amqp_dsn
             self.broker = broker
             self.faststream_app = faststream_app

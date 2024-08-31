@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
 
-from pydantic import RedisDsn, PostgresDsn, AmqpDsn
+from pydantic import AmqpDsn, PostgresDsn, RedisDsn
 
-from .redis import RedisDB
 from .postgres import PostgresDB
 from .rabbitmq import AmqpQueue
+from .redis import RedisDB
 
 
 class Adapters:

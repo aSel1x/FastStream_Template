@@ -2,7 +2,6 @@ from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.fastapi import inject
 from fastapi import APIRouter
 
-
 from app import models
 from app.usecases import Services
 

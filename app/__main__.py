@@ -1,20 +1,19 @@
-import os
 import asyncio
+import os
+
 import uvicorn
-
-from loguru import logger
-
 from dishka import make_async_container
 from dishka.integrations import fastapi as fastapi_integration
 from dishka.integrations import faststream as faststream_integration
+from loguru import logger
 
-from app.adapters.rabbitmq import AmqpQueue
 from app.adapters.adapters import Adapters
-from app.core.ioc import AppProvider
+from app.adapters.rabbitmq import AmqpQueue
 from app.core.config import Config
+from app.core.ioc import AppProvider
 
-from .http import FastAPIApp
 from .amqp import FastStreamApp
+from .http import FastAPIApp
 
 os.environ['TZ'] = 'UTC'
 
@@ -37,7 +36,7 @@ async def setup_app():
         amqp_worker = await FastStreamApp(config, adapter_amqp).initialize()
         faststream_integration.setup_dishka(container, adapter_amqp.faststream_app)
 
-        config = uvicorn.Config(app=http_app, host="0.0.0.0", port=8000)
+        config = uvicorn.Config(app=http_app, host='0.0.0.0', port=8000)
         server = uvicorn.Server(config)
 
         return amqp_worker, server
@@ -51,8 +50,8 @@ async def run_app():
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         asyncio.run(run_app())
     except KeyboardInterrupt:
-        logger.info("App close")
+        logger.info('App close')
