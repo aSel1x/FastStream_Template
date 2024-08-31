@@ -22,6 +22,7 @@ pre-commit = "^3.7.1"
 taskiq = "^0.11.6"
 taskiq-faststream = "^0.2.0"
 redis = "^5.0.8"
+types-redis = "^4.6.0.20240819"
 
 
 [build-system]

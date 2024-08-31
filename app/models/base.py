@@ -34,8 +34,8 @@ class TimestampModel(SQLModel):
         nullable=False,
     )
     updated_at: dt.datetime | int | str | None = Field(
+        default=None,
         sa_column=saColumn(
-            default=None,
             type_=types.Unixepoch,
             onupdate=datetime_utcnow,
             nullable=True,

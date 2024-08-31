@@ -8,15 +8,7 @@ from app.repositories import postgres as repos
 
 
 class PostgresDB:
-    _instance = None
-    _engine = None
-    _session_maker = None
-
-    # def __new__(cls, *args, **kwargs):
-    #     if cls._instance is None:
-    #         cls._instance = super(PostgresDB, cls).__new__(cls)
-    #         cls._instance.__initialized = False
-    #     return cls._instance
+    user: repos.UserRepo
 
     def __init__(
             self,
@@ -24,37 +16,31 @@ class PostgresDB:
             engine: AsyncEngine | None = None,
             session_maker: async_sessionmaker | None = None,
     ) -> None:
-        # if self.__initialized:
-        #     return
-
-        self.__pg_dsn = pg_dsn
-        self.__engine = engine
-        self.__session_maker = session_maker
+        self.__pg_dsn: PostgresDsn = pg_dsn
+        self.__engine: AsyncEngine = engine
+        self.__session_maker: async_sessionmaker = session_maker
         self.__session = None
         self.__initialized = True
 
     async def __set_async_engine(self) -> None:
-        if self._engine is None:
-            self._engine = create_async_engine(
+        if self.__engine is None:
+            self.__engine = create_async_engine(
                 self.__pg_dsn.unicode_string(),
             )
-        self.__engine = self._engine
 
     async def __set_session_maker(self) -> None:
-        if self._session_maker is None:
-            self._session_maker = async_sessionmaker(
+        if self.__session_maker is None:
+            self.__session_maker = async_sessionmaker(
                 autocommit=False,
                 autoflush=False,
                 bind=self.__engine,
                 class_=AsyncSession,
                 expire_on_commit=False,
             )
-        self.__session_maker = self._session_maker
 
     async def __set_session(self) -> None:
-        if self.__session is not None:
-            await self.__session.close()
-        self.__session = self.__session_maker()
+        if self.__session is None:
+            self.__session = self.__session_maker()
 
     async def __set_repositories(self) -> None:
         if self.__session is not None:

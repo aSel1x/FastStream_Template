@@ -26,11 +26,11 @@ class AmqpQueue:
             scheduler: StreamScheduler | None = None
     ) -> None:
         if not hasattr(self, 'initialized'):
-            self.__amqp_dsn = amqp_dsn
-            self.broker = broker
-            self.faststream_app = faststream_app
-            self.__taskiq_app = taskiq_app
-            self.taskiq_scheduler = scheduler
+            self.__amqp_dsn: AmqpDsn = amqp_dsn
+            self.broker: RabbitBroker = broker
+            self.faststream_app: FastStream = faststream_app
+            self.__taskiq_app: AppWrapper = taskiq_app
+            self.taskiq_scheduler: StreamScheduler = scheduler
             self.initialized = True
 
     async def create_task(

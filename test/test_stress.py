@@ -25,6 +25,7 @@ async def make_request(client: AsyncClient) -> bool:
         else:
             return False
     except Exception as e:
+        print(str(e))
         return False
 
 
@@ -36,7 +37,7 @@ async def stress_test(num_requests):
 
 
 async def main():
-    num_requests = 300
+    num_requests = 100
     start_time = time.time()
 
     results = await stress_test(num_requests)

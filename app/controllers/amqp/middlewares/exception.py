@@ -15,6 +15,7 @@ class FastStreamExceptionHandler(BaseMiddleware):
         except CustomException as e:
             response = e.__dict__
         except Exception as e:
+            logger.error(e)
             response = CustomException(
                 internal_code=0,
                 message=e.__str__()
