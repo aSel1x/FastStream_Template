@@ -15,15 +15,15 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
         self.model = model
         self.client = client
 
-    async def create(self, model: AbstractIDModel) -> AbstractIDModel:
+    async def create(self, model: AbstractIDModel) -> None:
         key = f"{self.model.__name__}:{model.id}"
         await self.client.set(key, model.model_dump_json())
-        return model
 
-    async def retrieve_one(self, ident: int | str = None) -> AbstractModel | None:
+    async def retrieve_one(self, ident: int | str) -> AbstractModel | None:
         key = f"{self.model.__name__}:{ident}"
         if data := await self.client.get(key):
             return self.model.model_validate_json(data)
+        return None
 
     async def retrieve_many(self) -> list[AbstractModel]:
         keys = await self.client.keys(f"{self.model.__name__}:*")

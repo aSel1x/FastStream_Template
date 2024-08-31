@@ -17,7 +17,7 @@ class UserService:
             raise exception.user.UsernameTaken
 
         user.password = self.service.security.pwd.hashpwd(user.password)
-        user = await self.service.adapters.postgres.user.create(models.User(**user.model_dump()))
+        user = await self.service.adapters.postgres.user.create(models.User.model_validate(user))
         await self.service.adapters.redis.user.create(user)
         return user
 
