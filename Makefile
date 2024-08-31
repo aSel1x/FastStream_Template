@@ -22,7 +22,7 @@ app:
 
 .PHONY: docker
 docker:
-	docker-compose up -d
+	docker-compose up -d --build
 
 .PHONY: migrate
 migrate:
