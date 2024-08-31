@@ -16,14 +16,14 @@ class Config(BaseSettings):
     # DATABASE
     POSTGRES_HOST: str = 'localhost'
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = 'postgres'
-    POSTGRES_PASSWORD: str = 'postgres'
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str = 'postgres'
 
     # RabbitMQ
     AMQP_HOST: str = 'localhost'
     AMQP_PORT: int = 5672
-    AMQP_USERNAME: str = 'guest'
+    AMQP_USERNAME: str | None = None
     AMQP_PASSWORD: str | None = None
 
     # Redis

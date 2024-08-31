@@ -1,11 +1,15 @@
-version: '3.6'
+version: '3.8'
 
 services:
-  api:
+  backend:
     build: .
     env_file:
       - .env
-    entrypoint: sh -c "uvicorn app:fastapi --host 0.0.0.0 --reload"
+    entrypoint: >
+      sh -c "
+      poetry run alembic upgrade head || (echo 'Migration failed' && exit 1);
+      poetry run python -m app
+      "
     volumes:
       - shared-volume:/app/generated_files
     networks:
@@ -19,28 +23,14 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      worker:
-        condition: service_started
-
-  worker:
-    build: .
-    entrypoint: sh -c "alembic upgrade head && taskiq scheduler app:faststream"
-    volumes:
-      - shared-volume:/app/generated_files
-    env_file:
-      - .env
-    networks:
-      - network
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      postgres:
+      redis:
         condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:3.12.12-alpine
-    env_file:
-      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${AMQP_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${AMQP_PASSWORD}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq/data
     networks:
@@ -56,9 +46,11 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:15.1-alpine
-    env_file:
-      - .env
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -68,15 +60,36 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}" ]
       interval: 10s
       timeout: 30s
       retries: 5
       start_period: 80s
 
+  redis:
+    image: redis:7.4-alpine
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - redis-data:/var/lib/redis/data
+      - redis-config:/var/lib/redis/redis.conf
+    networks:
+      - network
+    expose:
+      - 6379
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+
 volumes:
   postgres-data:
   rabbitmq-data:
+  redis-data:
+  redis-config:
   shared-volume:
 
 networks:
