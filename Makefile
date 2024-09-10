@@ -6,7 +6,7 @@ help:
 	@echo "AVAILABLE COMMANDS"
 	@echo "  ref		Reformat code"
 	@echo "  app		Start the application"
-	@echo "  test		Start the pytest test"
+	@echo "  tests		Start the pytest tests"
 	@echo "  docker		Docker container build"
 	@echo "  migrate	Alembic migrate database"
 	@echo "  generate	Alembic generate database"
@@ -22,9 +22,9 @@ app:
 	set -a; source .env; set +a; \
 	poetry run python -m app
 
-.PHONY: test
-test:
-	set -a; source .env; source .env.test; set +a; \
+.PHONY: tests
+tests:
+	set -a; source .env; source .env.tests; set +a; \
 	poetry run pytest
 
 .PHONY: docker
