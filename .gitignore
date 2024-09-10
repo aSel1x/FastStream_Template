@@ -123,7 +123,7 @@ celerybeat.pid
 .env*
 !.env.dist
 !.env.docker
-!.env.test
+!.env.tests
 .venv
 env/
 venv/
