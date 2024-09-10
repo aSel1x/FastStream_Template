@@ -2,13 +2,12 @@ import asyncio
 import os
 
 import uvicorn
-from dishka import make_async_container
+from dishka import AsyncContainer, make_async_container
 from dishka.integrations import fastapi as fastapi_integration
 from dishka.integrations import faststream as faststream_integration
 from loguru import logger
 
 from app.adapters.adapters import Adapters
-from app.adapters.rabbitmq import AmqpQueue
 from app.core.config import Config
 from app.core.ioc import AppProvider
 
@@ -16,37 +15,49 @@ from .amqp import FastStreamApp
 from .http import FastAPIApp
 
 os.environ['TZ'] = 'UTC'
+config = Config()
 
 
-async def setup_app():
-    config = Config()
-
-    async with Adapters.get_rabbitmq(config.amqp_dsn) as adapter_amqp:
-        container = make_async_container(
-            AppProvider(),
-            context={
-                Config: config,
-                AmqpQueue: adapter_amqp
-            }
-        )
-
-        http_app = await FastAPIApp(config, adapter_amqp).initialize()
-        fastapi_integration.setup_dishka(container, http_app)
-
-        amqp_worker = await FastStreamApp(config, adapter_amqp).initialize()
-        faststream_integration.setup_dishka(container, adapter_amqp.faststream_app)
-
-        config = uvicorn.Config(app=http_app, host='0.0.0.0', port=8000)
-        server = uvicorn.Server(config)
-
-        return amqp_worker, server
+async def get_adapters() -> Adapters:
+    async with Adapters.create(config) as adapters:
+        return adapters
 
 
-async def run_app():
-    amqp_worker, server = await setup_app()
+async def make_container() -> AsyncContainer:
+    adapters = await get_adapters()
+    return make_async_container(
+        AppProvider(),
+        context={
+            Config: config,
+            Adapters: adapters
+        }
+    )
+
+
+async def setup_http() -> FastAPIApp:
+    adapters = await get_adapters()
+    container = await make_container()
+    http_app = await FastAPIApp(config, adapters.rabbit).initialize()
+    fastapi_integration.setup_dishka(container, http_app.app)
+    return http_app
+
+
+async def setup_amqp() -> FastStreamApp:
+    adapters = await get_adapters()
+    container = await make_container()
+    amqp_app = await FastStreamApp(config, adapters.rabbit).initialize()
+    faststream_integration.setup_dishka(container, adapters.rabbit.faststream_app)
+    return amqp_app
+
+
+async def run_app() -> None:
+    amqp_app = await setup_amqp()
+    http_app = await setup_http()
     await asyncio.gather(
-        amqp_worker.startup(),
-        server.serve()
+        amqp_app.app.taskiq_scheduler.startup(),
+        uvicorn.Server(
+            uvicorn.Config(http_app.app, host='0.0.0.0')
+        ).serve()
     )
 
 

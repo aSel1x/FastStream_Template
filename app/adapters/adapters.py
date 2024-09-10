@@ -1,7 +1,7 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from pydantic import AmqpDsn, PostgresDsn, RedisDsn
-
+from app.core.config import Config
 from .postgres import PostgresDB
 from .rabbitmq import AmqpQueue
 from .redis import RedisDB
@@ -11,27 +11,17 @@ class Adapters:
     def __init__(
             self,
             postgres: PostgresDB,
+            rabbit: AmqpQueue,
             redis: RedisDB,
-            amqp: AmqpQueue,
     ) -> None:
         self.postgres = postgres
+        self.rabbit = rabbit
         self.redis = redis
-        self.amqp = amqp
 
-    @staticmethod
+    @classmethod
     @asynccontextmanager
-    async def get_redis(redis_dsn: RedisDsn):
-        async with RedisDB(redis_dsn) as redis:
-            yield redis
-
-    @staticmethod
-    @asynccontextmanager
-    async def get_rabbitmq(amqp_dsn: AmqpDsn):
-        async with AmqpQueue(amqp_dsn) as amqp:
-            yield amqp
-
-    @staticmethod
-    @asynccontextmanager
-    async def get_postgres(postgres_dsn: PostgresDsn):
-        async with PostgresDB(postgres_dsn) as postgres:
-            yield postgres
+    async def create(cls, config: Config) -> AsyncGenerator['Adapters', None]:
+        async with PostgresDB(config.postgres.dsn) as postgres:
+            async with AmqpQueue(config.rabbit.dsn) as rabbit:
+                async with RedisDB(config.redis.dsn) as redis:
+                    yield cls(postgres, rabbit, redis)

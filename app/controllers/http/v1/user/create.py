@@ -16,8 +16,8 @@ async def user_create(
 ) -> None:
     """Create new user"""
 
-    await service.adapters.amqp.create_task(
+    await service.adapters.rabbit.create_task(
         data,
-        queue='create_user',
-        exchange='users',
+        queue='create',
+        exchange='user',
     )

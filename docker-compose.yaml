@@ -5,6 +5,7 @@ services:
     build: .
     env_file:
       - .env
+      - .env.docker
     entrypoint: >
       sh -c "
       poetry run alembic upgrade head || (echo 'Migration failed' && exit 1);

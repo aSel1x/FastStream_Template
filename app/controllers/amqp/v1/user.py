@@ -1,7 +1,7 @@
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.faststream import inject
 from faststream.rabbit import RabbitRouter
-from faststream.rabbit.annotations import Logger
+from loguru import logger
 
 from app import models
 from app.usecases import Services
@@ -9,12 +9,11 @@ from app.usecases import Services
 router = RabbitRouter()
 
 
-@router.subscriber('create_user', 'users')
-@router.publisher('user_status', 'users')
+@router.subscriber('create', 'user')
+@router.publisher('response', 'user')
 @inject
-async def users(
+async def user_create(
         data: models.UserCreate,
-        logger: Logger,
         services: Depends[Services],
 ):
     user = await services.user.create(

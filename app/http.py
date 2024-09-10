@@ -14,9 +14,9 @@ class FastAPIApp:
             adapter_amqp: AmqpQueue
     ):
         self.app = FastAPI(
-            title=config.APP_TITLE,
-            root_path=config.APP_PATH,
-            version=config.APP_VERSION,
+            title=config.app.name,
+            root_path=config.app.path,
+            version=config.app.version,
             contact={
                 'name': 'aSel1x',
                 'url': 'https://asel1x.github.io',
@@ -32,7 +32,7 @@ class FastAPIApp:
         yield
         await self.adapter_amqp.broker.close()
 
-    async def initialize(self) -> FastAPI:
+    async def initialize(self) -> 'FastAPIApp':
         http.setup_handlers(self.app)
         self.app.include_router(http.router)
-        return self.app
+        return self

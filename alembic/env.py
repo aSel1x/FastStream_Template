@@ -24,7 +24,8 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = SQLModel.metadata
 
-config.set_main_option('sqlalchemy.url', Config().pg_dsn.unicode_string())
+app_config = Config()
+config.set_main_option('sqlalchemy.url', app_config.postgres.dsn.unicode_string())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

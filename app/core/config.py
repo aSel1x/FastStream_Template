@@ -1,65 +1,76 @@
-from pydantic import AmqpDsn, PostgresDsn, RedisDsn
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from os import environ as env
+
+from pydantic import BaseModel, Field
+from pydantic import PostgresDsn, AmqpDsn, RedisDsn
 
 
-class Config(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file='.env', env_file_encoding='utf-8', case_sensitive=True
-    )
+class AppConfig(BaseModel):
+    path: str = Field('/api', alias='APP_PATH')
+    name: str = Field('Template', alias='APP_TITLE')
+    secret: str = Field('123abc', alias='APP_SECRET_KEY')
+    version: str = Field('1.0.0', alias='APP_VERSION')
 
-    # APP
-    APP_PATH: str = '/api'
-    APP_TITLE: str = 'Template'
-    APP_VERSION: str = '1.0.0'
-    APP_SECRET_KEY: str = '123abc'
 
-    # DATABASE
-    POSTGRES_HOST: str = 'localhost'
-    POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str | None = None
-    POSTGRES_PASSWORD: str | None = None
-    POSTGRES_DB: str = 'postgres'
-
-    # RabbitMQ
-    AMQP_HOST: str = 'localhost'
-    AMQP_PORT: int = 5672
-    AMQP_USERNAME: str | None = None
-    AMQP_PASSWORD: str | None = None
-
-    # Redis
-    REDIS_HOST: str = 'localhost'
-    REDIS_PORT: int = 6379
-    REDIS_SSL: bool = False
-    REDIS_USERNAME: str | None = None
-    REDIS_PASSWORD: str | None = None
+class PostgresConfig(BaseModel):
+    user: str = Field(alias='POSTGRES_USER')
+    password: str = Field(alias='POSTGRES_PASSWORD')
+    host: str = Field('localhost', alias='POSTGRES_HOST')
+    port: int = Field(5432, alias='POSTGRES_PORT')
+    database: str = Field(alias='POSTGRES_DB')
 
     @property
-    def pg_dsn(self) -> PostgresDsn:
+    def dsn(self) -> PostgresDsn:
         return PostgresDsn.build(
             scheme='postgresql+asyncpg',
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_HOST,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            path=self.database,
         )
 
+
+class RabbitConfig(BaseModel):
+    user: str = Field(alias='RABBIT_USERNAME')
+    password: str = Field(alias='RABBIT_PASSWORD')
+    host: str = Field('localhost', alias='RABBIT_HOST')
+    port: int = Field(5672, alias='RABBIT_PORT')
+    path: int | None = Field(None, alias='RABBIT_PATH')
+
     @property
-    def amqp_dsn(self) -> AmqpDsn:
+    def dsn(self) -> AmqpDsn:
         return AmqpDsn.build(
             scheme='amqp',
-            username=self.AMQP_USERNAME,
-            password=self.AMQP_PASSWORD,
-            host=self.AMQP_HOST,
-            port=self.AMQP_PORT
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            path=self.path
         )
 
+
+class RedisConfig(BaseModel):
+    user: str = Field(alias='REDIS_USERNAME')
+    password: str = Field(alias='REDIS_PASSWORD')
+    ssl: bool = Field(False, alias='REDIS_SSL')
+    host: str = Field('localhost', alias='REDIS_HOST')
+    port: int = Field(6379, alias='REDIS_PORT')
+    path: int | None = Field(0, alias='REDIS_DB')
+
     @property
-    def redis_dsn(self) -> RedisDsn:
+    def dsn(self) -> RedisDsn:
         return RedisDsn.build(
-            scheme='rediss' if self.REDIS_SSL else 'redis',
-            username=self.REDIS_USERNAME,
-            password=self.REDIS_PASSWORD,
-            host=self.REDIS_HOST,
-            port=self.REDIS_PORT
+            scheme='rediss' if self.ssl else 'redis',
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            path=f"/{self.path}"
         )
+
+
+class Config:
+    app = AppConfig(**env)
+    postgres = PostgresConfig(**env)
+    rabbit = RabbitConfig(**env)
+    redis = RedisConfig(**env)

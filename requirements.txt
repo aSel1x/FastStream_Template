@@ -1,5 +1,6 @@
 aio-pika==9.4.3 
 aiormq==6.8.0 
+aiosqlite==0.20.0 
 alembic==1.13.2 
 annotated-types==0.7.0 
 anyio==4.4.0 
@@ -29,6 +30,7 @@ httpx==0.27.2
 identify==2.6.0 
 idna==3.8 
 importlib-metadata==8.4.0 
+iniconfig==2.0.0 
 itsdangerous==2.2.0 
 jinja2==3.1.4 
 loguru==0.7.2 
@@ -42,6 +44,7 @@ orjson==3.10.7
 packaging==24.1 
 pamqp==3.3.0 
 platformdirs==4.2.2 
+pluggy==1.5.0 
 pre-commit==3.8.0 
 pycparser==2.22 
 pycron==3.0.0 
@@ -51,6 +54,8 @@ pydantic-settings==2.4.0
 pydantic==2.8.2 
 pygments==2.18.0 
 pyjwt==2.9.0 
+pytest-asyncio==0.24.0 
+pytest==8.3.2 
 python-dotenv==1.0.1 
 python-multipart==0.0.9 
 pytz==2024.1 

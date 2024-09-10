@@ -16,8 +16,10 @@ class UserService:
         if await self.service.adapters.postgres.user.retrieve_by_username(user.username):
             raise exception.user.UsernameTaken
 
-        user.password = self.service.security.pwd.hashpwd(user.password)
-        user = await self.service.adapters.postgres.user.create(models.User.model_validate(user))
+        user = models.User.model_validate(user, update=dict(
+            password=self.service.security.pwd.hashpwd(user.password)
+        ))
+        user = await self.service.adapters.postgres.user.create(user)
         await self.service.adapters.redis.user.create(user)
         return user
 

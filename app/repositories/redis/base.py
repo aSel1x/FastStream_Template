@@ -15,9 +15,9 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
         self.model = model
         self.client = client
 
-    async def create(self, model: AbstractIDModel) -> None:
+    async def create(self, model: AbstractIDModel) -> bool | None:
         key = f"{self.model.__name__}:{model.id}"
-        await self.client.set(key, model.model_dump_json())
+        return await self.client.set(key, model.model_dump_json())
 
     async def retrieve_one(self, ident: int | str) -> AbstractModel | None:
         key = f"{self.model.__name__}:{ident}"
@@ -30,6 +30,6 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
         values = await self.client.mget(keys)
         return [self.model.model_validate_json(data) for data in values]
 
-    async def delete(self, ident: int | str) -> None:
+    async def delete(self, ident: int | str) -> int:
         key = f"{self.model.__name__}:{ident}"
-        await self.client.delete(key)
+        return await self.client.delete(key)

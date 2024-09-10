@@ -2,6 +2,7 @@ import datetime as dt
 import uuid
 from functools import partial
 
+from pydantic import ConfigDict
 from sqlalchemy import Column as saColumn
 from sqlmodel import Field, SQLModel
 
@@ -28,6 +29,7 @@ class UUIDModel(SQLModel):
 
 
 class TimestampModel(SQLModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     created_at: dt.datetime | int | str = Field(
         default_factory=datetime_utcnow,
         sa_type=types.Unixepoch,
@@ -41,6 +43,3 @@ class TimestampModel(SQLModel):
             nullable=True,
         )
     )
-
-    class Config:
-        arbitrary_types_allowed = True
