@@ -6,7 +6,7 @@ from app.core.config import Config
 
 class Security:
     def __init__(self, config: Config):
-        self.jwt = JWT(config.APP_SECRET_KEY)
+        self.jwt = JWT(config.app.secret)
         self.pwd = PWD()
 
 

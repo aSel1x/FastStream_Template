@@ -10,17 +10,24 @@ from app.repositories import postgres as repos
 class PostgresDB:
     user: repos.UserRepo
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(
             self,
             pg_dsn: PostgresDsn,
             engine: AsyncEngine | None = None,
             session_maker: async_sessionmaker | None = None,
     ) -> None:
-        self.__pg_dsn: PostgresDsn = pg_dsn
-        self.__engine: AsyncEngine = engine
-        self.__session_maker: async_sessionmaker = session_maker
-        self.__session = None
-        self.__initialized = True
+        if not hasattr(self, 'initialized'):
+            self.__pg_dsn: PostgresDsn = pg_dsn
+            self.__engine: AsyncEngine = engine
+            self.__session_maker: async_sessionmaker = session_maker
+            self.__initialized = True
 
     async def __set_async_engine(self) -> None:
         if self.__engine is None:
@@ -38,22 +45,16 @@ class PostgresDB:
                 expire_on_commit=False,
             )
 
-    async def __set_session(self) -> None:
-        if self.__session is None:
-            self.__session = self.__session_maker()
-
     async def __set_repositories(self) -> None:
-        if self.__session is not None:
-            self.user = repos.UserRepo(self.__session)
+        if self.__session_maker is not None:
+            self.user = repos.UserRepo(self.__session_maker)
 
     async def __aenter__(self) -> Self:
         await self.__set_async_engine()
         await self.__set_session_maker()
-        await self.__set_session()
         await self.__set_repositories()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:
-        if self.__session is not None:
-            await self.__session.commit()
-            await self.__session.close()
+        if self.__engine is not None:
+            await self.__engine.dispose()

@@ -15,11 +15,15 @@ class FastStreamExceptionHandler(BaseMiddleware):
         except CustomException as e:
             response = e.__dict__
         except Exception as e:
-            logger.error(e)
             response = CustomException(
                 internal_code=0,
                 message=e.__str__()
             ).__dict__
+
+        if msg.raw_message.delivery_tag >= 5:
+            await msg.nack(requeue=False)
+        else:
+            await msg.nack()
+
         logger.error(response)
-        await msg.nack(requeue=False)
         return response
