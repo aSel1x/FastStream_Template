@@ -13,7 +13,10 @@ and override here args like docker-host or tests-database.
     `poetry install` or `pip install -r requirements.txt`
 2. Run application.
 
-   `make app` or `python -m app`
+   `make app`
+
+### To run the application tests:
+`make test`
 
 ### Make documentation:
 `make help`
