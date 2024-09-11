@@ -9,7 +9,7 @@ from dishka.integrations import faststream as faststream_integration
 from dishka.integrations import taskiq as taskiq_integration
 from faststream.rabbit.testing import TestRabbitBroker
 from faststream.testing import TestApp
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from redis.asyncio.client import Redis
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
@@ -30,8 +30,9 @@ from .taskiq_faststream_testing import TestScheduleSource
 
 
 @pytest.fixture(scope='session', autouse=True)
-def config(event_loop) -> Config:
+def config() -> Config:
     return Config()
+
 
 @pytest.fixture(scope='session', autouse=True)
 def postgres_engine(config: Config) -> AsyncEngine:
@@ -55,7 +56,7 @@ async def postgres_reset(postgres_engine: AsyncEngine) -> None:
 @pytest.fixture(scope='module', autouse=True)
 async def redis_reset(redis_client: Redis) -> None:
     await redis_client.flushdb()
-    await redis_client.close()
+    await redis_client.aclose()
 
 
 class TestAppProvider(Provider):
@@ -70,7 +71,6 @@ class TestAppProvider(Provider):
 
 @pytest.fixture(scope='session', autouse=True)
 async def container(
-        event_loop,
         config: Config,
         faststream_app: FastStreamApp,
         fastapi_app: FastAPIApp,
@@ -96,7 +96,8 @@ async def container(
 
 @pytest.fixture(scope='session', autouse=True)
 async def http_client(config: Config, fastapi_app: FastAPIApp) -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(app=fastapi_app.app, base_url='http://0.0.0.0:8000/api/v1') as http_client:
+    async with AsyncClient(transport=ASGITransport(fastapi_app.app),
+                           base_url='http://0.0.0.0:8000/api/v1') as http_client:
         yield http_client
 
 
@@ -184,3 +185,8 @@ def event_loop():
         loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def anyio_backend():
+    return 'asyncio'

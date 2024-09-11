@@ -20,7 +20,7 @@ async def test_user_create(http_client: AsyncClient, cache: dict[str, Any]) -> N
     cache.update(user_create=user_create)
 
 async def test_user_auth(http_client: AsyncClient, cache: dict[str, Any]) -> None:
-    await asyncio.sleep(5)
+    await asyncio.sleep(0.2)
     user_create: models.UserCreate | None = cache.get("user_create")
     assert user_create is not None
 
