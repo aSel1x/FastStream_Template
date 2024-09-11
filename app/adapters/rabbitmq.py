@@ -21,7 +21,7 @@ class RabbitQueue:
 
     def __init__(
             self,
-            amqp_dsn: AmqpDsn,
+            rabbit_dsn: AmqpDsn,
             redis_dsn: RedisDsn,
             faststream_broker: RabbitBroker | None = None,
             faststream_app: FastStream | None = None,
@@ -30,14 +30,14 @@ class RabbitQueue:
             taskiq_scheduler: TaskiqScheduler | None = None,
     ) -> None:
         if not hasattr(self, 'initialized'):
-            self.__amqp_dsn: AmqpDsn = amqp_dsn
+            self.__rabbit_dsn: AmqpDsn = rabbit_dsn
             self.__redis_dsn: RedisDsn = redis_dsn
             self.__faststream_broker: RabbitBroker = faststream_broker
             self.__faststream_app: FastStream = faststream_app
             self.__taskiq_broker: AioPikaBroker = taskiq_broker
             self.__taskiq_scheduler_source: RedisScheduleSource = taskiq_scheduler_source
             self.__taskiq_scheduler: TaskiqScheduler = taskiq_scheduler
-            self.initialized = True
+            self.__initialized = True
 
         self.__faststream_broker_connect: RobustConnection
 
@@ -79,7 +79,7 @@ class RabbitQueue:
 
     async def __set_faststream_broker(self) -> None:
         if self.__faststream_broker is None:
-            self.__faststream_broker = RabbitBroker(self.__amqp_dsn.unicode_string(), max_consumers=99)
+            self.__faststream_broker = RabbitBroker(self.__rabbit_dsn.unicode_string(), max_consumers=99)
 
     async def __set_faststream_broker_connect(self) -> None:
         if self.__faststream_broker_connect is None:
@@ -91,7 +91,7 @@ class RabbitQueue:
 
     async def __set_taskiq_app(self) -> None:
         if self.__taskiq_broker is None:
-            self.__taskiq_broker = AioPikaBroker(self.__amqp_dsn.unicode_string())
+            self.__taskiq_broker = AioPikaBroker(self.__rabbit_dsn.unicode_string())
 
     async def __set_taskiq_scheduler_source(self) -> None:
         if self.__taskiq_scheduler_source is None:
