@@ -19,6 +19,12 @@ class IDModel(SQLModel):
         index=True,
     )
 
+    def __repr__(self):
+        return str(self.id)
+
+    def __str__(self):
+        return str(self.id)
+
 
 class UUIDModel(SQLModel):
     external_id: uuid.UUID = Field(

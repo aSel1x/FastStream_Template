@@ -12,6 +12,9 @@ class UserCreate(SQLModel):
     username: str
     password: str
 
+    def __str__(self):
+        return self.username
+
 
 class UserAuth(SQLModel):
     token: str

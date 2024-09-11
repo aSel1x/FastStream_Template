@@ -14,10 +14,8 @@ router = RabbitRouter()
 @inject
 async def user_create(
         data: models.UserCreate,
-        services: Depends[Services],
+        service: Depends[Services],
 ):
-    user = await services.user.create(
-        user=data,
-    )
+    user = await service.user.create(data)
     logger.info(f"User {data.username} created")
     return user

@@ -1,7 +1,6 @@
 from os import environ as env
 
-from pydantic import BaseModel, Field
-from pydantic import PostgresDsn, AmqpDsn, RedisDsn
+from pydantic import AmqpDsn, BaseModel, Field, PostgresDsn, RedisDsn
 
 
 class AppConfig(BaseModel):
