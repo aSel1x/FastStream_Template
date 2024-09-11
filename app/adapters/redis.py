@@ -26,7 +26,7 @@ class RedisDB:
         if not hasattr(self, 'initialized'):
             self.__client = client
             self.__redis_dsn = redis_dsn
-            self.initialized = True
+            self.__initialized = True
 
     async def __set_redis(self) -> None:
         if self.__client is None:

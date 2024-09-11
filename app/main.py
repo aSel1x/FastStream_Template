@@ -37,7 +37,7 @@ def setup_faststream() -> FastStreamApp:
     container = make_container()
     faststream_app = FastStreamApp(config).initialize()
     RabbitQueue(
-        amqp_dsn=config.rabbit.dsn,
+        rabbit_dsn=config.rabbit.dsn,
         redis_dsn=config.redis.dsn,
         faststream_broker=faststream_app.broker,
         faststream_app=faststream_app.app,
@@ -50,7 +50,7 @@ def setup_taskiq() -> TaskIqApp:
     container = make_container()
     taskiq_app = TaskIqApp(config).initialize()
     RabbitQueue(
-        amqp_dsn=config.rabbit.dsn,
+        rabbit_dsn=config.rabbit.dsn,
         redis_dsn=config.redis.dsn,
         taskiq_broker=taskiq_app.broker,
         taskiq_scheduler=taskiq_app.scheduler,
