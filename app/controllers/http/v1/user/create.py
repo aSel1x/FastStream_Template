@@ -15,7 +15,6 @@ async def user_create(
         service: Depends[Services]
 ) -> None:
     """Create new user"""
-
     await service.adapters.rabbit.create_task(
         data,
         queue='create',

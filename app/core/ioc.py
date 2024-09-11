@@ -7,7 +7,11 @@ from app.usecases import Services
 
 class AppProvider(Provider):
     config = from_context(provides=Config, scope=Scope.APP)
-    adapters = from_context(provides=Adapters, scope=Scope.APP)
+
+    @provide(scope=Scope.APP)
+    async def get_adapters(self, config: Config) -> Adapters:
+        async with Adapters.create(config) as adapters:
+            return adapters
 
     services = provide(
         Services,
