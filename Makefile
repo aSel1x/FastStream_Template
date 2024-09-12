@@ -22,7 +22,7 @@ ref:
 .PHONY: http
 http:
 	set -a; source .env; set +a; \
-	poetry run uvicorn app:backend --reload
+	poetry run uvicorn app:http --reload
 
 .PHONY: amqp
 amqp:

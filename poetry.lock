@@ -31,24 +31,6 @@ pamqp = "3.3.0"
 yarl = "*"
 
 [[package]]
-name = "aiosqlite"
-version = "0.20.0"
-description = "asyncio bridge to the standard sqlite3 module"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "aiosqlite-0.20.0-py3-none-any.whl", hash = "sha256:36a1deaca0cac40ebe32aac9977a6e2bbc7f5189f23f4a54d5908986729e5bd6"},
-    {file = "aiosqlite-0.20.0.tar.gz", hash = "sha256:6d35c8c256637f4672f843c31021464090805bf925385ac39473fb16eaaca3d7"},
-]
-
-[package.dependencies]
-typing_extensions = ">=4.0"
-
-[package.extras]
-dev = ["attribution (==1.7.0)", "black (==24.2.0)", "coverage[toml] (==7.4.1)", "flake8 (==7.0.0)", "flake8-bugbear (==24.2.6)", "flit (==3.9.0)", "mypy (==1.8.0)", "ufmt (==2.3.0)", "usort (==1.0.8.post1)"]
-docs = ["sphinx (==7.2.6)", "sphinx-mdinclude (==0.5.3)"]
-
-[[package]]
 name = "alembic"
 version = "1.13.2"
 description = "A database migration tool for SQLAlchemy."
@@ -441,13 +423,13 @@ pydantic = ">=1.7.4,<1.8 || >1.8,<1.8.1 || >1.8.1,<3.0.0"
 
 [[package]]
 name = "fastapi"
-version = "0.114.0"
+version = "0.114.1"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "fastapi-0.114.0-py3-none-any.whl", hash = "sha256:fee75aa1b1d3d73f79851c432497e4394e413e1dece6234f68d3ce250d12760a"},
-    {file = "fastapi-0.114.0.tar.gz", hash = "sha256:9908f2a5cc733004de6ca5e1412698f35085cefcbfd41d539245b9edf87b73c1"},
+    {file = "fastapi-0.114.1-py3-none-any.whl", hash = "sha256:5d4746f6e4b7dff0b4f6b6c6d5445645285f662fe75886e99af7ee2d6b58bb3e"},
+    {file = "fastapi-0.114.1.tar.gz", hash = "sha256:1d7bbbeabbaae0acb0c22f0ab0b040f642d3093ca3645f8c876b6f91391861d8"},
 ]
 
 [package.dependencies]
@@ -537,91 +519,6 @@ files = [
 docs = ["furo (>=2024.8.6)", "sphinx (>=8.0.2)", "sphinx-autodoc-typehints (>=2.4)"]
 testing = ["covdefaults (>=2.3)", "coverage (>=7.6.1)", "diff-cover (>=9.1.1)", "pytest (>=8.3.2)", "pytest-asyncio (>=0.24)", "pytest-cov (>=5)", "pytest-mock (>=3.14)", "pytest-timeout (>=2.3.1)", "virtualenv (>=20.26.3)"]
 typing = ["typing-extensions (>=4.12.2)"]
-
-[[package]]
-name = "granian"
-version = "1.6.0"
-description = "A Rust HTTP server for Python applications"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "granian-1.6.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:e2413bd37570f2f4fcd9a4856ee5592052205d0b415a8a5286d51f3d4dce4de4"},
-    {file = "granian-1.6.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b408530fa597cb57ea7dc54353702c386ea0549a3c40c4af56bc007b9f762ca3"},
-    {file = "granian-1.6.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:61147d9138189c81b4f3e1e4af375cda8d1ab0ab442163c14d22384096eaa0a3"},
-    {file = "granian-1.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5533919cfa4d2fc7d2ba4508a1c90ec1b1704399eccdd795e9d9a1543a2a7995"},
-    {file = "granian-1.6.0-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:f2255aa3822f9004ef7ea13821e0afd5d0719d103461d4858b9d096e0800c369"},
-    {file = "granian-1.6.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:8cdd3f45a5fb803729bd49ce5b4b0e279845bc3e2b8c4a9a9b1d60dd40d0ed3d"},
-    {file = "granian-1.6.0-cp310-none-win_amd64.whl", hash = "sha256:58d9629640b1499a871a0ad796d57f2fde3527c9593d8dec374fa79e21ad99bd"},
-    {file = "granian-1.6.0-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:d026adda75ab4bb7c6e32e3ae2241442baaeb7ef489ce18cd1d4e5c228c96164"},
-    {file = "granian-1.6.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:566c2cc2fe40a1e3945ba7ebdaf94730931397667df0818d66ff7eb8843437b8"},
-    {file = "granian-1.6.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0ec459c7691681cf21117ed761ab9816a177c3dc0a3eaa1fd5cfa1ee246f1b83"},
-    {file = "granian-1.6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8f3960d28c43278bb9317099960e60fbe5ebef3f9458d146bff328cf773e9bdf"},
-    {file = "granian-1.6.0-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:6e6cec6eb146a6bd31deaa2aef1568bba3a5075f936047680d7970037f70d250"},
-    {file = "granian-1.6.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:a6d7f0c2a0aded09d71c7b32a8470ab8926929b240aa6e842108f416f8d537bd"},
-    {file = "granian-1.6.0-cp311-none-win_amd64.whl", hash = "sha256:31e622580dadf4b9405a2c19365730db6415ab92c5c35b2b2241c4eba5756df7"},
-    {file = "granian-1.6.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:0791e89e3d870e406bd8c36f5182c35f598885ed170ffa435ce58ae157dce841"},
-    {file = "granian-1.6.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:8990aa0fe07f4a02eb535996f6565920aced4f93f286ad6a83dec5513ac8d173"},
-    {file = "granian-1.6.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2f2ba6021f75de2e19dd86de457410e3488da92f96b0b247ae8c1417c1821f06"},
-    {file = "granian-1.6.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:146e7a06967f2a2badeed4f88b32f1cb8e775d849296ccdc7b763beddc0d31eb"},
-    {file = "granian-1.6.0-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:41a9630be50ecbea4b5b5e9a3a43016b0c1e82bc9e5b39bbad564cdad9380ceb"},
-    {file = "granian-1.6.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:fa488093cd3ec97bd6483f61d13b7a81791ecd01408aa6e43ebdcb62506d5b5f"},
-    {file = "granian-1.6.0-cp312-none-win_amd64.whl", hash = "sha256:55c220ecb1eb6467d7280f0677d3d17942294674396d2fb9310267dc36eaf71c"},
-    {file = "granian-1.6.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:a7fff2ca39d8792bb03ac6d22da303dec1d4c8cea51f1829ff9b17788b3977a5"},
-    {file = "granian-1.6.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:53a29c4821b938f90341d44187cf921bfa0ae5d02a0d208109ce94f75abec0df"},
-    {file = "granian-1.6.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:36fec2db0ae732fe641797d5030e87c28126a3ea35e9ae919bb0ae609c921192"},
-    {file = "granian-1.6.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e8777502cad2e8e3a99b602d644157edf9988d45c235455db23ff130b24e6ab3"},
-    {file = "granian-1.6.0-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:4c954b9355f2d6c9f0c3b44180ed177138e6e1acda8d367622f496d113dfd19c"},
-    {file = "granian-1.6.0-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:63ca11a81e95576afc57194aef29b561cddff616caf6d696d1d17dd8d67da8fc"},
-    {file = "granian-1.6.0-cp313-none-win_amd64.whl", hash = "sha256:8e4ebf3c24de0f6ed35bf9193f963bb3f32defc109c582a606a01267431858f2"},
-    {file = "granian-1.6.0-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:b84feac46a990c1fdf4806f3bb15e5d7ec4ed69e6e5eebcde85010da7715dc9f"},
-    {file = "granian-1.6.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:0f36af090fa09f9e49c7216e93b16808a1538546cfa0a6e3e5948d5337d2cb41"},
-    {file = "granian-1.6.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e5ba72a21cecab4e24281a44e0bad2de60e447fddd604d8d5463c23e30d28edb"},
-    {file = "granian-1.6.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:760c1e92b134bf999e34ae867b387f846c7d05212e140b56e29cfd26d2b99b9a"},
-    {file = "granian-1.6.0-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:8edc309650f0af677da317810d0864b1fde00aef0c67fac3556c31a2d827a441"},
-    {file = "granian-1.6.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:8a76c192d89e00283c6dcabaa0690e4cec700621348ad905ebaeabf36b5d2e4b"},
-    {file = "granian-1.6.0-cp38-none-win_amd64.whl", hash = "sha256:7a9744a4cfcd0985ce59a2a8237285acb590cfff7c9b60a6f9ece419d81b7880"},
-    {file = "granian-1.6.0-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:f82c4129874c6d58fea5e2c3c3509472db344de5d5a0e1592f466266e6b027b8"},
-    {file = "granian-1.6.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:7535bb5ee707223c523637b8a84499a4a7b040b774ef888055b85d48e24d8a1b"},
-    {file = "granian-1.6.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:061d2b414264219b4aacee24bf2903f6531b0ea56fc86a902e2f3c7a23dea23e"},
-    {file = "granian-1.6.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:86eb6e0770e917588e1dc2652f168def14868f74d87f4bd247361ea573b3d246"},
-    {file = "granian-1.6.0-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:4cb0eb2e365a6172d42681982fb6b3efbbd6703048022e8afcabb2a2d1377ec0"},
-    {file = "granian-1.6.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:07d4a30a1e0ce8af8ff7d2ad014200f75afc63c413eedef5a6d76d11e7f5560d"},
-    {file = "granian-1.6.0-cp39-none-win_amd64.whl", hash = "sha256:6e1753b3c02ac8acc333151af675284f847cab3c75e697c1e956e920d917c515"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-macosx_10_12_x86_64.whl", hash = "sha256:f1a53dac430f11d742837f05b3981883dfd27bc0b0b36fa291a2622bd04587c9"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:b557fd34c0109b1309e8a4eeeb10ec0cac52127899f205ec98659d55249b5c71"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ad54bbc75980386f2ff426ddcc755b8315f81445bcff2dfafcfb590251e9e80b"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:90c59481dbd9d3cbfbd5d21af71ad6ac74e47ea25a23d4f5456a2ca325e811f3"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:53c8b6a263f038e6e34908993c11480f91adfeac0a8821a05151568a32d5eed9"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:b1d275c1b25a5086d40cb46bcdfef8880387fe751941773319d66d95f90b8f41"},
-    {file = "granian-1.6.0-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:5e949c8a47075e9ec4d66b82309fc71ccb4032212cf1ab00e1e661beba94fff8"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-macosx_10_12_x86_64.whl", hash = "sha256:240f46540e83cd0c36cd74cd24f59bf2fa9351a458bc1442f12005dc14e08e32"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-macosx_11_0_arm64.whl", hash = "sha256:a6e1aa4dbd0589af88dd18ea121787f39c698543a2c159e0e4a9d045aa0d9953"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:17ccc50554b99f37f586610c05d022eb34386f72b7f5aedbeabb103daecfc8b7"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d9ddb31bca7636e23393e05660e1f23bf5006028fdf4b8222c9680d976173d0d"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:693749bc8289a3e081009c87e9a807e5727c0cbdc6db9534ec4e43573ec32708"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:46fac8808640e85a4a400566886ecc31c920cc72fc4575e604b8bc6c09cdc07f"},
-    {file = "granian-1.6.0-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:c435f7da1a5645b5e53ca7d596cd0dc672b3d3772cbe4a80d1102c2255692010"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-macosx_10_12_x86_64.whl", hash = "sha256:686d762b31738c54ff91d0e26ac75b39c616af4a9b2208dcd44a1a6db468f74c"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-macosx_11_0_arm64.whl", hash = "sha256:f09715fc88296eec08d0f53fe1a2ad4aa91fa974b0b20c4ee09e2a6523144872"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:26e1f244551f7ac48d0d1938bbf4e7c281fcfb5d4f905f3f36fc78d67686af43"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5aeaf9ad219b20ff4f75c6fe6a619cd7508973d02dcb6bbaf5c114d54da8333e"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:e2f2268594e0a02daad69febf60075b47c20da30b2466f4b8d7714b902764942"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:89970359ac528eb8ceff54c7235efbc6d225057112d931f9a63ecd6f606621d5"},
-    {file = "granian-1.6.0-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:1d26c93e58b8d49fe12e3f38d18799e86f6997cdc9ff231597f01ec6cce259f1"},
-    {file = "granian-1.6.0.tar.gz", hash = "sha256:b752e6de406741f3cc51c88deab4e4e11d239351f0b4b605407b802499220160"},
-]
-
-[package.dependencies]
-click = ">=8.0.0"
-uvloop = {version = ">=0.18.0", markers = "sys_platform != \"win32\" and platform_python_implementation == \"CPython\" and python_version != \"3.13\""}
-
-[package.extras]
-all = ["granian[pname,reload]"]
-dev = ["granian[all,lint,test]"]
-lint = ["ruff (>=0.5.0,<0.6.0)"]
-pname = ["setproctitle (>=1.3.3,<1.4.0)"]
-reload = ["watchfiles (>=0.21,<1.0)"]
-test = ["httpx (>=0.25.0,<0.26.0)", "pytest (>=7.4.2,<7.5.0)", "pytest-asyncio (>=0.21.1,<0.22.0)", "websockets (>=11.0,<12.0)"]
 
 [[package]]
 name = "greenlet"
@@ -798,22 +695,26 @@ files = [
 
 [[package]]
 name = "importlib-metadata"
-version = "8.4.0"
+version = "8.5.0"
 description = "Read metadata from Python packages"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "importlib_metadata-8.4.0-py3-none-any.whl", hash = "sha256:66f342cc6ac9818fc6ff340576acd24d65ba0b3efabb2b4ac08b598965a4a2f1"},
-    {file = "importlib_metadata-8.4.0.tar.gz", hash = "sha256:9a547d3bc3608b025f93d403fdd1aae741c24fbb8314df4b155675742ce303c5"},
+    {file = "importlib_metadata-8.5.0-py3-none-any.whl", hash = "sha256:45e54197d28b7a7f1559e60b95e7c567032b602131fbd588f1497f47880aa68b"},
+    {file = "importlib_metadata-8.5.0.tar.gz", hash = "sha256:71522656f0abace1d072b9e5481a48f07c138e00f079c38c8f883823f9c26bd7"},
 ]
 
 [package.dependencies]
-zipp = ">=0.5"
+zipp = ">=3.20"
 
 [package.extras]
+check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1)"]
+cover = ["pytest-cov"]
 doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+enabler = ["pytest-enabler (>=2.2)"]
 perf = ["ipython"]
-test = ["flufl.flake8", "importlib-resources (>=1.3)", "jaraco.test (>=5.4)", "packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy", "pytest-perf (>=0.9.2)", "pytest-ruff (>=0.2.1)"]
+test = ["flufl.flake8", "importlib-resources (>=1.3)", "jaraco.test (>=5.4)", "packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-perf (>=0.9.2)"]
+type = ["pytest-mypy"]
 
 [[package]]
 name = "iniconfig"
@@ -1231,6 +1132,17 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "poetry-core"
+version = "1.9.0"
+description = "Poetry PEP 517 Build Backend"
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "poetry_core-1.9.0-py3-none-any.whl", hash = "sha256:4e0c9c6ad8cf89956f03b308736d84ea6ddb44089d16f2adc94050108ec1f5a1"},
+    {file = "poetry_core-1.9.0.tar.gz", hash = "sha256:fa7a4001eae8aa572ee84f35feb510b321bd652e5cf9293249d62853e1f935a2"},
+]
+
+[[package]]
 name = "pre-commit"
 version = "3.8.0"
 description = "A framework for managing and maintaining multi-language pre-commit hooks."
@@ -1417,13 +1329,13 @@ semver = ["semver (>=3.0.2)"]
 
 [[package]]
 name = "pydantic-settings"
-version = "2.5.0"
+version = "2.5.2"
 description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pydantic_settings-2.5.0-py3-none-any.whl", hash = "sha256:eae04a3dd9adf521a4c959dcefb984e0f3b1d841999daf02f961dcc4d31d2f7f"},
-    {file = "pydantic_settings-2.5.0.tar.gz", hash = "sha256:204828c02481a2e7135466b26a7d65d9e15a17d52d1d8f59cacdf9ad625e1140"},
+    {file = "pydantic_settings-2.5.2-py3-none-any.whl", hash = "sha256:2c912e55fd5794a59bf8c832b9de832dcfdf4778d79ff79b708744eed499a907"},
+    {file = "pydantic_settings-2.5.2.tar.gz", hash = "sha256:f90b139682bee4d2065273d5185d71d37ea46cfe57e1b5ae184fc6a0b2484ca0"},
 ]
 
 [package.dependencies]
@@ -1534,13 +1446,13 @@ dev = ["atomicwrites (==1.4.1)", "attrs (==23.2.0)", "coverage (==7.4.1)", "hatc
 
 [[package]]
 name = "pytz"
-version = "2024.1"
+version = "2024.2"
 description = "World timezone definitions, modern and historical"
 optional = false
 python-versions = "*"
 files = [
-    {file = "pytz-2024.1-py2.py3-none-any.whl", hash = "sha256:328171f4e3623139da4983451950b28e95ac706e13f3f2630a879749e7a8b319"},
-    {file = "pytz-2024.1.tar.gz", hash = "sha256:2a29735ea9c18baf14b448846bde5a48030ed267578472d8955cd0e7443a9812"},
+    {file = "pytz-2024.2-py2.py3-none-any.whl", hash = "sha256:31c7c1817eb7fae7ca4b8c7ee50c72f93aa2dd863de768e1ef4245d426aa0725"},
+    {file = "pytz-2024.2.tar.gz", hash = "sha256:2aa355083c50a0f93fa581709deac0c9ad65cca8a9e9beac660adcbd493c798a"},
 ]
 
 [[package]]
@@ -1834,45 +1746,6 @@ files = [
     {file = "taskiq_dependencies-1.5.3-py3-none-any.whl", hash = "sha256:ffa81997b8d6f4be0b2e08280b241dc3cecd9b49ff1fd259688e244d977cadd4"},
     {file = "taskiq_dependencies-1.5.3.tar.gz", hash = "sha256:ee52d01e6683cafbeb0a0b0e4abf58b2d304d7db0769e024fe0a0e8bcedadc57"},
 ]
-
-[[package]]
-name = "taskiq-fastapi"
-version = "0.3.2"
-description = "FastAPI integration for taskiq"
-optional = false
-python-versions = "<4.0.0,>=3.8.1"
-files = [
-    {file = "taskiq_fastapi-0.3.2-py3-none-any.whl", hash = "sha256:85da394239801ca3b1142bf3d15ebc0a19e9e8f224f074c945b25a1c69f4e365"},
-    {file = "taskiq_fastapi-0.3.2.tar.gz", hash = "sha256:f6f24ce07d7b784211f0d7f564d18a3d2411a5d7fa4fbb154adac449c9496e49"},
-]
-
-[package.dependencies]
-fastapi = ">=0.93.0"
-taskiq = ">=0.8.0,<1"
-
-[[package]]
-name = "taskiq-faststream"
-version = "0.2.0"
-description = "FastStream - taskiq integration to schedule FastStream tasks"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "taskiq_faststream-0.2.0-py3-none-any.whl", hash = "sha256:d909195cf1a20057c5cfc1f8feaec879636b4eb051f3c550c64eeee57f6a55fc"},
-    {file = "taskiq_faststream-0.2.0.tar.gz", hash = "sha256:719b2a99b64e4bbb8ed1e5a7b4258da83ec7aa19c505c6e1269e192f8e416880"},
-]
-
-[package.dependencies]
-faststream = ">=0.3.14,<0.6.0"
-taskiq = ">=0.11.0,<0.12.0"
-
-[package.extras]
-confluent = ["faststream[confluent]"]
-dev = ["coverage[toml] (>=7.2.0,<8.0.0)", "faststream[confluent]", "faststream[kafka]", "faststream[nats]", "faststream[rabbit]", "faststream[redis]", "mypy (>=1.8.0,<1.12.0)", "pre-commit (>=3.6.0,<4.0.0)", "pytest (>=7.4.0,<9)", "ruff (==0.4.1)"]
-kafka = ["faststream[kafka]"]
-nats = ["faststream[nats]"]
-rabbit = ["faststream[rabbit]"]
-redis = ["faststream[redis]"]
-test = ["coverage[toml] (>=7.2.0,<8.0.0)", "faststream[confluent]", "faststream[kafka]", "faststream[nats]", "faststream[rabbit]", "faststream[redis]", "pytest (>=7.4.0,<9)"]
 
 [[package]]
 name = "taskiq-redis"
@@ -2479,4 +2352,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "0d8909429d7567563e5433f2d7cb2aeec301b9e327c26b4ae4dc605b886ed91d"
+content-hash = "a876240f86ff1e18d036cbde9b861657007dc92b930386d69a8f6cfe99ef489c"
