@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  backend:
+  http:
     build: .
     env_file:
       - .env
@@ -9,7 +9,7 @@ services:
     entrypoint: >
       sh -c "
       poetry run alembic upgrade head || (echo 'Migration failed' && exit 1);
-      poetry run python -m app
+      poetry run uvicorn app:http --reload --host 0.0.0.0
       "
     volumes:
       - shared-volume:/app/generated_files
@@ -20,31 +20,46 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      rabbitmq:
-        condition: service_healthy
       postgres:
+        condition: service_healthy
+      rabbit:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  rabbitmq:
-    image: rabbitmq:3.12.12-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: ${AMQP_USERNAME}
-      RABBITMQ_DEFAULT_PASS: ${AMQP_PASSWORD}
+  amqp:
+    build: .
+    env_file:
+      - .env
+      - .env.docker
+    entrypoint: >
+      sh -c "
+      poetry run faststream run app:amqp --reload
+      "
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq/data
+      - shared-volume:/app/generated_files
     networks:
       - network
-    expose:
-      - 5672
-    ports:
-      - "5672:5672"
-    healthcheck:
-      test: [ "CMD", "rabbitmqctl", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    depends_on:
+      http:
+        condition: service_started
+
+  scheduler:
+    build: .
+    env_file:
+      - .env
+      - .env.docker
+    entrypoint: >
+      sh -c "
+      poetry run taskiq scheduler app:scheduler
+      "
+    volumes:
+      - shared-volume:/app/generated_files
+    networks:
+      - network
+    depends_on:
+      amqp:
+        condition: service_started
 
   postgres:
     image: postgres:16.4-alpine
@@ -66,6 +81,25 @@ services:
       timeout: 30s
       retries: 5
       start_period: 80s
+
+  rabbit:
+    image: rabbitmq:3.12.12-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/data
+    networks:
+      - network
+    expose:
+      - 5672
+    ports:
+      - "5672:5672"
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   redis:
     image: redis:7.4-alpine
