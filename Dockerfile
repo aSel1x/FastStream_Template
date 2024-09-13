@@ -1,10 +1,10 @@
 FROM python:3.12
 
-WORKDIR /code
+WORKDIR /app
 
 RUN pip install poetry
 
-COPY . /code/
+COPY . /app/
 
 RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi

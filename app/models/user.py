@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from sqlmodel import SQLModel
 
 from .base import IDModel, TimestampModel
@@ -16,9 +17,12 @@ class UserCreate(SQLModel):
         return self.username
 
 
-class UserAuth(SQLModel):
-    token: str
-
-
 class User(UserBase, IDModel, TimestampModel, table=True):  # type: ignore
     password: str
+
+
+class UserAuth(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str

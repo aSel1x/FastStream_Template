@@ -1,61 +1,33 @@
 version: '3.8'
-name: faststream-template
+name: faststream-template-tests
 services:
-  http:
+  tests:
     build: .
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: >
-      sh -c "
-      poetry run alembic upgrade head || (echo 'Migration failed' && exit 1);
-      poetry run uvicorn app:http --reload --host 0.0.0.0
-      "
+      POSTGRES_HOST: "postgres_test"
+      POSTGRES_DB: "test"
+      RABBIT_HOST: "rabbit_test"
+      REDIS_HOST: "redis_test"
+      REDIS_DB: "1"
     ports:
       - "8000:8000"
+    entrypoint: sh -c "poetry run pytest"
     depends_on:
-      postgres:
+      postgres_test:
         condition: service_healthy
-      rabbit:
+      rabbit_test:
         condition: service_healthy
-      redis:
+      redis_test:
         condition: service_healthy
 
-  amqp:
-    build: .
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: sh -c "poetry run faststream run app:amqp --reload"
-    depends_on:
-      http:
-        condition: service_started
-
-  scheduler:
-    build: .
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: sh -c "poetry run taskiq scheduler app:scheduler"
-    depends_on:
-      amqp:
-        condition: service_started
-
-  postgres:
+  postgres_test:
     image: postgres:latest
     environment:
       POSTGRES_USER: $POSTGRES_USER
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
-      POSTGRES_DB: $POSTGRES_DB
+      POSTGRES_DB: "test"
     ports:
       - "5432:5432"
     healthcheck:
@@ -65,7 +37,7 @@ services:
       retries: 5
       start_period: 80s
 
-  rabbit:
+  rabbit_test:
     image: rabbitmq:latest
     environment:
       RABBITMQ_DEFAULT_USER: $RABBIT_USERNAME
@@ -78,7 +50,7 @@ services:
       timeout: 5s
       retries: 3
 
-  redis:
+  redis_test:
     image: redis:latest
     environment:
       ALLOW_EMPTY_PASSWORD: "yes"
