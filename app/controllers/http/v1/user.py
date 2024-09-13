@@ -2,14 +2,14 @@ from typing import Annotated
 
 from dishka.integrations.base import FromDishka as Depends
 from dishka.integrations.fastapi import inject
-from fastapi import APIRouter, status, Body
+from fastapi import APIRouter, Body, status
 from fastapi.responses import Response
 
 from app import models
 from app.controllers.http import deps
 from app.usecases import Services
 
-router = APIRouter(prefix="/user", tags=["user"])
+router = APIRouter(prefix='/user', tags=['user'])
 
 
 @router.post('/', response_class=Response, status_code=status.HTTP_201_CREATED)

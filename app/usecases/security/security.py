@@ -1,7 +1,7 @@
+from app.core.config import Config
+
 from .jwt import JWT
 from .pwd import PWD
-
-from app.core.config import Config
 
 
 class Security:
