@@ -1,51 +1,59 @@
 from typing import Any
 
-from app.models import UserCreate, User, UserAuth
+import pytest
+
+from app import models
 from app.usecases import Services
+
+pytestmark = pytest.mark.asyncio(loop_scope='session')
 
 
 async def test_user_create(
         use_cases: Services,
         cache: dict[str, Any]
 ) -> None:
-    user_create = UserCreate(
-        username="username",
-        password="password",
+    user_create = models.UserCreate(
+        username='username',
+        password='password',
     )
-    cache.update(user_create=user_create.__deepcopy__())
+    cache.update(user_create=user_create)
 
-    r: User = await use_cases.user.create(user_create)
+    o_user: models.User = await use_cases.user.create(user_create)
 
-    assert r.username == user_create.username
-    assert use_cases.security.pwd.checkpwd(user_create.password, r.password)
+    assert o_user.username == user_create.username
+    assert use_cases.security.pwd.checkpwd(user_create.password, o_user.password)
 
-    cache.update(user=r)
+    cache.update(user=o_user)
 
 
 async def test_user_auth(
         use_cases: Services,
         cache: dict[str, Any]
 ) -> None:
-    user_create: UserCreate = cache.get("user_create")
+    user_create: models.UserCreate | None = cache.get('user_create')
+    i_user: models.User | None = cache.get('user')
+    assert user_create is not None
+    assert i_user is not None
 
-    r: UserAuth = await use_cases.user.auth(user_create.username, user_create.password)
+    user_auth: models.UserAuth = await use_cases.user.oauth2(i_user)
 
-    cache.update(user_auth=r)
+    cache.update(user_auth=user_auth)
 
 
 async def test_user_retrieve(
         use_cases: Services,
         cache: dict[str, Any]
 ) -> None:
-    user: User = cache.get("user")
-    user_auth: UserAuth = cache.get("user_auth")
-    user_create: UserCreate = cache.get("user_create")
+    user_create: models.UserCreate | None = cache.get('user_create')
+    user_auth: models.UserAuth | None = cache.get('user_auth')
+    i_user: models.User | None = cache.get('user')
+    assert user_create is not None
+    assert user_auth is not None
+    assert i_user is not None
 
-    r: User = await use_cases.user.retrieve_by_token(user_auth.token)
+    o_user: models.User = await use_cases.user.retrieve_by_token(user_auth.access_token)
 
-    assert r is not None
-
-    assert r.id == user.id
-    assert r.username == user_create.username
-    assert use_cases.security.pwd.checkpwd(user_create.password, r.password)
-    assert r.is_active == user.is_active
+    assert o_user.id == i_user.id
+    assert o_user.username == o_user.username
+    assert use_cases.security.pwd.checkpwd(user_create.password, o_user.password)
+    assert o_user.is_active == i_user.is_active

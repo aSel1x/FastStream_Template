@@ -1,18 +1,18 @@
-import asyncio
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import pytest
-from dishka import Provider, Scope, from_context, make_async_container, provide, AsyncContainer
+import pytest_asyncio
+from dishka import Provider, Scope, from_context, make_async_container, provide
 from dishka.integrations import fastapi as fastapi_integration
 from dishka.integrations import faststream as faststream_integration
 from dishka.integrations import taskiq as taskiq_integration
 from faststream.rabbit.testing import TestRabbitBroker
 from faststream.testing import TestApp
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from redis.asyncio.client import Redis
 from sqlalchemy import NullPool
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import SQLModel
 from taskiq import InMemoryBroker, TaskiqScheduler
 
@@ -44,8 +44,8 @@ def redis_client(config: Config) -> Redis:
     return Redis.from_url(config.redis.dsn.unicode_string())
 
 
-@pytest.fixture(scope='module', autouse=True)
-async def postgres_reset(postgres_engine: AsyncEngine) -> None:
+@pytest_asyncio.fixture(scope='module', loop_scope='session', autouse=True)
+async def postgres_reset(postgres_engine: AsyncEngine) -> AsyncIterator[None]:
     async with postgres_engine.begin() as con:
         await con.run_sync(SQLModel.metadata.create_all)
     yield
@@ -53,10 +53,10 @@ async def postgres_reset(postgres_engine: AsyncEngine) -> None:
         await con.run_sync(SQLModel.metadata.drop_all)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest_asyncio.fixture(scope='module', loop_scope='session', autouse=True)
 async def redis_reset(redis_client: Redis) -> None:
     await redis_client.flushdb()
-    await redis_client.aclose()
+    await redis_client.aclose()  # type: ignore[attr-defined]
 
 
 class TestAppProvider(Provider):
@@ -69,7 +69,7 @@ class TestAppProvider(Provider):
     )
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def container(
         config: Config,
         faststream_app: FastStreamApp,
@@ -94,20 +94,20 @@ async def container(
     await container.close()
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def http_client(config: Config, fastapi_app: FastAPIApp) -> AsyncIterator[AsyncClient]:
     async with AsyncClient(transport=ASGITransport(fastapi_app.app),
                            base_url='http://0.0.0.0:8000/api/v1') as http_client:
         yield http_client
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def fastapi_app(config: Config) -> AsyncIterator[FastAPIApp]:
     fastapi_app = FastAPIApp(config).initialize()
     yield fastapi_app
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def faststream_app(config: Config) -> AsyncIterator[FastStreamApp]:
     faststream_app = FastStreamApp(config).initialize()
     async with TestRabbitBroker(faststream_app.broker) as br:
@@ -119,7 +119,7 @@ async def faststream_app(config: Config) -> AsyncIterator[FastStreamApp]:
             await faststream_app.app.stop()
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def taskiq_app(config: Config, faststream_app: FastStreamApp) -> AsyncIterator[TaskIqApp]:
     taskiq_app = TaskIqApp(config)
     taskiq_app.broker = InMemoryBroker()
@@ -132,13 +132,13 @@ async def taskiq_app(config: Config, faststream_app: FastStreamApp) -> AsyncIter
     await taskiq_app.scheduler.shutdown()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def postgres(config: Config, postgres_engine: AsyncEngine) -> AsyncIterator[PostgresDB]:
     async with PostgresDB(config.postgres.dsn, engine=postgres_engine) as postgres:
         yield postgres
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def rabbit(config: Config, faststream_app: FastStreamApp, taskiq_app: TaskIqApp) -> AsyncIterator[RabbitQueue]:
     async with RabbitQueue(
             rabbit_dsn=config.rabbit.dsn,
@@ -152,41 +152,31 @@ async def rabbit(config: Config, faststream_app: FastStreamApp, taskiq_app: Task
         yield rabbit
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def redis(config: Config, redis_client: Redis) -> AsyncIterator[RedisDB]:
     async with RedisDB(config.redis.dsn, client=redis_client) as redis:
         yield redis
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def adapters(
         config: Config, postgres: PostgresDB, rabbit: RabbitQueue, redis: RedisDB
 ) -> Adapters:
     return Adapters(postgres, rabbit, redis)
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(loop_scope='session', autouse=True)
 async def use_cases(adapters: Adapters, config: Config) -> Services:
     return Services(adapters, config)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest_asyncio.fixture(scope='module', autouse=True)
 def cache() -> Iterator[dict[str, Any]]:
     cache: dict[str, Any] = dict()
     yield cache
     cache.clear()
 
 
-@pytest.fixture(scope='session')
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
+@pytest_asyncio.fixture
 def anyio_backend():
     return 'asyncio'
