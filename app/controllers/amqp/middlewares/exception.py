@@ -1,29 +1,44 @@
-from collections.abc import Awaitable, Callable
-from typing import Any
+import asyncio
+from typing import Annotated
 
-from faststream import BaseMiddleware
-from faststream.rabbit.annotations import RabbitMessage
+from asyncpg import exceptions as apg_exc
+from faststream import Context, ExceptionMiddleware
+from faststream.rabbit.message import RabbitMessage
 from loguru import logger
+from sqlalchemy import exc as sa_exc
 
 from app.core.exception.base import CustomException
 
+exc_middleware = ExceptionMiddleware()
 
-class FastStreamExceptionHandler(BaseMiddleware):
-    async def consume_scope(self, call_next: Callable[[Any], Awaitable[Any]], msg: RabbitMessage) -> Any:
-        try:
-            return await call_next(msg)
-        except CustomException as e:
-            response = e.__dict__
-        except Exception as e:
-            response = CustomException(
-                internal_code=0,
-                message=e.__str__()
-            ).__dict__
 
-        if msg.raw_message.delivery_tag >= 5:
-            await msg.nack(requeue=False)
-        else:
-            await msg.nack()
+@exc_middleware.add_handler(CustomException)
+async def custom_exc_handler(
+        exc: CustomException,
+        message: Annotated[RabbitMessage, Context()],
+) -> None:
+    logger.info(exc.with_traceback(None))
+    await message.nack(requeue=False)
 
-        logger.error(response)
-        return response
+
+@exc_middleware.add_handler(sa_exc.SQLAlchemyError)
+@exc_middleware.add_handler(apg_exc.PostgresError)
+async def sa_exc_handler(
+        exc: sa_exc.SQLAlchemyError | apg_exc.PostgresError,
+        message: Annotated[RabbitMessage, Context()],
+) -> None:
+    logger.warning(exc.with_traceback(None))
+    if isinstance(exc, (sa_exc.TimeoutError, apg_exc.TooManyConnectionsError)):
+        await asyncio.sleep(60)
+        await message.nack(requeue=True)
+    else:
+        await message.nack(requeue=False)
+
+
+@exc_middleware.add_handler(Exception)
+async def exc_handler(
+        exc: Exception,
+        message: Annotated[RabbitMessage, Context()],
+) -> None:
+    logger.warning(exc.with_traceback(None))
+    await message.nack(requeue=False)

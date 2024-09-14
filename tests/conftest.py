@@ -87,7 +87,7 @@ async def container(
             Adapters: adapters,
         }
     )
-    faststream_integration.setup_dishka(container, faststream_app.app)
+    faststream_integration.setup_dishka(container, faststream_app.app, auto_inject=True)
     fastapi_integration.setup_dishka(container, fastapi_app.app)
     taskiq_integration.setup_dishka(container, taskiq_app.broker)
     yield container
