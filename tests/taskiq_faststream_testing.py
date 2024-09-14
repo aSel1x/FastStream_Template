@@ -35,7 +35,7 @@ class TestScheduleSource(ScheduleSource):
     # This method is optional. You may not implement this.
     # It's just a helper to people to be able to interact with your source.
     async def add_schedule(self, schedule: 'ScheduledTask') -> None:
-        sleep_time = (dt.datetime.now(dt.timezone.utc) - schedule.time).total_seconds()
+        sleep_time = (schedule.time - dt.datetime.now(dt.timezone.utc)).total_seconds()
         entry, queue, exchange = map(schedule.kwargs.get, ('entity', 'queue', 'exchange'))
         await asyncio.sleep(sleep_time)
         await self.__broker.publish(entry, queue, exchange)
