@@ -42,7 +42,7 @@ def setup_faststream() -> FastStreamApp:
         faststream_broker=faststream_app.broker,
         faststream_app=faststream_app.app,
     )
-    faststream_integration.setup_dishka(container, faststream_app.app)
+    faststream_integration.setup_dishka(container, faststream_app.app, auto_inject=True)
     return faststream_app
 
 

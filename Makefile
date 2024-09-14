@@ -23,7 +23,7 @@ ref:
 .PHONY: http
 http:
 	set -a; source .env; set +a; \
-	poetry run uvicorn app:http --reload
+	poetry run uvicorn app:http --workers 4 --limit-concurrency 1000
 
 .PHONY: amqp
 amqp:
@@ -50,6 +50,7 @@ docker-tests:
 
 .PHONY: migrate
 migrate:
+	set -a; source .env; set +a; \
 	poetry run alembic upgrade head
 
 .PHONY: generate

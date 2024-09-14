@@ -1,3 +1,3 @@
-from .exception import FastStreamExceptionHandler
+from .exception import exc_middleware
 
 dir()
