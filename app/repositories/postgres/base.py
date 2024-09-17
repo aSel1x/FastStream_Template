@@ -5,10 +5,7 @@ from typing import Generic, TypeVar
 import sqlmodel as sm
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.models.base import IDModel
-
 AbstractModel = TypeVar('AbstractModel', bound=sm.SQLModel)
-AbstractIDModel = TypeVar('AbstractIDModel', bound=IDModel)
 
 
 class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
@@ -26,7 +23,7 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
     async def retrieve_one(
             self,
             ident: int | None = None,
-            where_clauses: list[sm.DefaultClause] | list[bool] | None = None,
+            where_clauses: list[bool] | None = None,
     ) -> AbstractModel | None:
         async with self.session.begin() as session:
             if ident is not None:
@@ -39,7 +36,7 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
 
     async def retrieve_many(
             self,
-            where_clauses: list[sm.DefaultClause] | list[bool] | None = None,
+            where_clauses: list[bool] | None = None,
             limit: int | None = None,
             order_by: sm.Column | None = None
     ) -> Sequence[AbstractModel] | None:
@@ -53,15 +50,6 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
                 stmt = stmt.order_by(order_by)
             entity = await session.exec(stmt)
             return entity.all()
-
-    async def update(self, model: AbstractIDModel) -> None:
-        async with self.session.begin() as session:
-            stmt = (
-                sm.update(self.model)
-                .where(self.model.id == model.id)
-                .values(**model.model_dump(exclude_unset=True))
-            )
-            await session.execute(stmt)
 
     async def delete(self, instance: AbstractModel) -> None:
         async with self.session.begin() as session:

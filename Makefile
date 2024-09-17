@@ -23,7 +23,7 @@ ref:
 .PHONY: http
 http:
 	set -a; source .env; set +a; \
-	poetry run uvicorn app:http --workers 4 --limit-concurrency 1000
+	poetry run uvicorn app:http --limit-concurrency 1000 --reload
 
 .PHONY: amqp
 amqp:
@@ -55,6 +55,7 @@ migrate:
 
 .PHONY: generate
 generate:
+	set -a; source .env; set +a; \
 	poetry run alembic revision --autogenerate
 
 .PHONY: req

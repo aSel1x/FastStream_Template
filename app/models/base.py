@@ -25,12 +25,13 @@ class IDModel(SQLModel):
     def __str__(self):
         return str(self.id)
 
+    def __hash__(self):
+        return hash(self.id)
+
 
 class UUIDModel(SQLModel):
     external_id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        unique=True,
-        nullable=False
+        default_factory=uuid.uuid4, unique=True, nullable=False
     )
 
 
@@ -47,5 +48,5 @@ class TimestampModel(SQLModel):
             type_=types.Unixepoch,
             onupdate=datetime_utcnow,
             nullable=True,
-        )
+        ),
     )

@@ -19,69 +19,76 @@ class RabbitQueue:
         return cls._instance
 
     def __init__(
-            self,
-            rabbit_dsn: AmqpDsn,
-            redis_dsn: RedisDsn,
-            faststream_broker: RabbitBroker | None = None,
-            faststream_broker_connect: RobustConnection | None = None,
-            faststream_app: FastStream | None = None,
-            taskiq_broker: AioPikaBroker | None = None,
-            taskiq_scheduler_source: RedisScheduleSource | None = None,
-            taskiq_scheduler: TaskiqScheduler | None = None,
+        self,
+        rabbit_dsn: AmqpDsn,
+        redis_dsn: RedisDsn,
+        faststream_broker: RabbitBroker | None = None,
+        faststream_broker_connect: RobustConnection | None = None,
+        faststream_app: FastStream | None = None,
+        taskiq_broker: AioPikaBroker | None = None,
+        taskiq_scheduler_source: RedisScheduleSource | None = None,
+        taskiq_scheduler: TaskiqScheduler | None = None,
     ) -> None:
-        if not hasattr(self, 'initialized'):
-            self.__rabbit_dsn: AmqpDsn = rabbit_dsn
-            self.__redis_dsn: RedisDsn = redis_dsn
-            self.__faststream_broker: RabbitBroker = faststream_broker
-            self.__faststream_broker_connect: RobustConnection = faststream_broker_connect
-            self.__faststream_app: FastStream = faststream_app
-            self.__taskiq_broker: AioPikaBroker = taskiq_broker
-            self.__taskiq_scheduler_source: RedisScheduleSource = taskiq_scheduler_source
-            self.__taskiq_scheduler: TaskiqScheduler = taskiq_scheduler
+        if not hasattr(self, "initialized"):
+            self.__rabbit_dsn = rabbit_dsn
+            self.__redis_dsn = redis_dsn
+            self.__faststream_broker = faststream_broker
+            self.__faststream_broker_connect = faststream_broker_connect
+            self.__faststream_app = faststream_app
+            self.__taskiq_broker = taskiq_broker
+            self.__taskiq_scheduler_source = taskiq_scheduler_source
+            self.__taskiq_scheduler = taskiq_scheduler
             self.__initialized = True
 
     async def create_task(
-            self,
-            entry: Any,
-            queue: str,
-            *,
-            exchange: str | None = None,
-            when: dt.datetime | int | None = None,
+        self,
+        entry: Any,
+        queue: str,
+        *,
+        exchange: str | None = None,
+        when: dt.datetime | int | None = None,
     ) -> None:
 
         if when is None:
-            await self.__set_faststream_broker_connect()
-            await self.__faststream_broker.publish(entry, queue, exchange)
+            if self.__faststream_broker is not None:
+                await self.__set_faststream_broker_connect()
+                await self.__faststream_broker.publish(entry, queue, exchange)
             return
         elif isinstance(when, dt.datetime):
             pass
         elif isinstance(when, int):
             when = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=when)
         else:
-            raise ValueError
-
-        await self.__taskiq_scheduler_source.add_schedule(
-            ScheduledTask(
-                task_name=f"{exchange}:{queue}:{entry}",
-                args=(),
-                kwargs={
-                    'entity': entry,
-                    'queue': queue,
-                    'exchange': exchange,
-                },
-                labels={},
-                time=when
+            raise ValueError(
+                "{hen=} must be {type(dt.datetime)} | {type(int)} | {type(None)}"
             )
-        )
+
+        if self.__taskiq_scheduler_source is not None:
+            await self.__taskiq_scheduler_source.add_schedule(
+                ScheduledTask(
+                    task_name=f"{exchange}:{queue}:{entry}",
+                    args=[],
+                    kwargs={
+                        "entity": entry,
+                        "queue": queue,
+                        "exchange": exchange,
+                    },
+                    labels={},
+                    time=when,
+                )
+            )
 
     async def __set_faststream_broker(self) -> None:
         if self.__faststream_broker is None:
             self.__faststream_broker = RabbitBroker(self.__rabbit_dsn.unicode_string())
 
     async def __set_faststream_broker_connect(self) -> None:
-        if self.__faststream_broker_connect is None:
+        if self.__faststream_broker and self.__faststream_broker_connect is None:
             self.__faststream_broker_connect = await self.__faststream_broker.connect()
-        elif self.__faststream_broker_connect.is_closed:
+        elif (
+            self.__faststream_broker_connect
+            and self.__faststream_broker_connect.is_closed
+        ):
             await self.__faststream_broker_connect.reconnect()
 
     async def __set_faststream_app(self) -> None:
@@ -94,10 +101,16 @@ class RabbitQueue:
 
     async def __set_taskiq_scheduler_source(self) -> None:
         if self.__taskiq_scheduler_source is None:
-            self.__taskiq_scheduler_source = RedisScheduleSource(self.__redis_dsn.unicode_string())
+            self.__taskiq_scheduler_source = RedisScheduleSource(
+                self.__redis_dsn.unicode_string()
+            )
 
     async def __set_taskiq_scheduler(self) -> None:
-        if self.__taskiq_scheduler is None:
+        if (
+            self.__taskiq_scheduler is None
+            and self.__taskiq_broker
+            and self.__taskiq_scheduler_source
+        ):
             self.__taskiq_scheduler = TaskiqScheduler(
                 self.__taskiq_broker, [self.__taskiq_scheduler_source]
             )
@@ -110,5 +123,5 @@ class RabbitQueue:
         await self.__set_taskiq_scheduler()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         pass
