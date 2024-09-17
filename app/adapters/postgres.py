@@ -24,9 +24,9 @@ class PostgresDB:
             session_maker: async_sessionmaker | None = None,
     ) -> None:
         if not hasattr(self, 'initialized'):
-            self.__pg_dsn: PostgresDsn = pg_dsn
-            self.__engine: AsyncEngine = engine
-            self.__session_maker: async_sessionmaker = session_maker
+            self.__pg_dsn = pg_dsn
+            self.__engine = engine
+            self.__session_maker = session_maker
             self.__initialized = True
 
     async def __set_async_engine(self) -> None:

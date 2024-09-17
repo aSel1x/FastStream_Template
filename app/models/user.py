@@ -1,11 +1,11 @@
 from pydantic import BaseModel
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 from .base import IDModel, TimestampModel
 
 
 class UserBase(SQLModel):
-    username: str
+    username: str = Field(index=True)
     is_active: bool = True
 
 

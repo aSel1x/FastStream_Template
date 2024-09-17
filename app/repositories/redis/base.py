@@ -28,7 +28,7 @@ class Repository(Generic[AbstractModel], metaclass=abc.ABCMeta):
     async def retrieve_many(self) -> list[AbstractModel]:
         keys = await self.client.keys(f"{self.model.__name__}:*")
         values = await self.client.mget(keys)
-        return [self.model.model_validate_json(data) for data in values]
+        return [self.model.model_validate_json(data) for data in values if data]
 
     async def delete(self, ident: int | str) -> int:
         key = f"{self.model.__name__}:{ident}"

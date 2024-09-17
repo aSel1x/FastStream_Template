@@ -7,8 +7,8 @@ from taskiq import ScheduledTask, ScheduleSource
 
 class TestScheduleSource(ScheduleSource):
     def __init__(
-            self,
-            broker: RabbitBroker,
+        self,
+        broker: RabbitBroker,
     ):
         self.__broker = broker
 
@@ -35,8 +35,14 @@ class TestScheduleSource(ScheduleSource):
     # This method is optional. You may not implement this.
     # It's just a helper to people to be able to interact with your source.
     async def add_schedule(self, schedule: 'ScheduledTask') -> None:
+        if schedule.time is None:
+            raise ValueError(f"{schedule.time=} cannot be None")
         sleep_time = (schedule.time - dt.datetime.now(dt.timezone.utc)).total_seconds()
-        entry, queue, exchange = map(schedule.kwargs.get, ('entity', 'queue', 'exchange'))
+        entry, queue, exchange = map(
+            schedule.kwargs.get, ('entity', 'queue', 'exchange')
+        )
+        if not isinstance(queue, str):
+            raise ValueError(f"{queue=} should be str")
         await asyncio.sleep(sleep_time)
         await self.__broker.publish(entry, queue, exchange)
 

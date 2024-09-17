@@ -14,17 +14,25 @@ class UserService:
         self.service = service
 
     async def create(self, user: models.UserCreate) -> models.User:
-        if await self.service.adapters.postgres.user.retrieve_by_username(user.username):
+        if (
+            await self.service.adapters.redis.user.username_check(user.username)
+            is not None
+        ):
             raise exception.user.UsernameTaken
-        user = models.User.model_validate(user, update=dict(
-            password=self.service.security.pwd.hashpwd(user.password)
-        ))
-        user = await self.service.adapters.postgres.user.create(user)
-        await self.service.adapters.redis.user.create(user)
-        return user
+        await self.service.adapters.redis.user.username_take(user.username)
+        _user: models.User = models.User.model_validate(
+            user, update=dict(password=self.service.security.pwd.hashpwd(user.password))
+        )
+        _user = await self.service.adapters.postgres.user.create(_user)
+        await self.service.adapters.redis.user.create(_user)
+        return _user
 
     async def authenticate(self, user: models.UserCreate) -> models.User:
-        if not (_user := await self.service.adapters.postgres.user.retrieve_by_username(user.username)):
+        if not (
+            _user := await self.service.adapters.postgres.user.retrieve_by_username(
+                user.username
+            )
+        ):
             raise exception.user.NotFound
         if not self.service.security.pwd.checkpwd(user.password, _user.password):
             raise exception.user.PasswordWrong
@@ -32,7 +40,9 @@ class UserService:
 
     async def oauth2(self, user: models.User) -> models.UserAuth:
         expires_in = 3600
-        access_token = self.service.security.jwt.encode({'id': user.id}, time.time() + expires_in)
+        access_token = self.service.security.jwt.encode(
+            {'id': user.id}, time.time() + expires_in
+        )
         refresh_token = self.service.security.jwt.encode({'id': user.id})
         return models.UserAuth(
             access_token=access_token,
@@ -46,9 +56,13 @@ class UserService:
             raise exception.token.TokenPayload
         if (ident := payload.get('id')) is None:
             raise exception.token.TokenPayloadUser
-        if (user := await self.service.adapters.redis.user.retrieve_one(ident=ident)) is not None:
+        if (
+            user := await self.service.adapters.redis.user.retrieve_one(ident=ident)
+        ) is not None:
             return user
-        if (user := await self.service.adapters.postgres.user.retrieve_one(ident=ident)) is not None:
+        if (
+            user := await self.service.adapters.postgres.user.retrieve_one(ident=ident)
+        ) is not None:
             await self.service.adapters.redis.user.create(user)
             return user
         raise exception.user.NotFound
