@@ -14,10 +14,7 @@ class UserService:
         self.service = service
 
     async def create(self, user: models.UserCreate) -> models.User:
-        if (
-            await self.service.adapters.redis.user.username_check(user.username)
-            is not None
-        ):
+        if await self.service.adapters.redis.user.username_check(user.username):
             raise exception.user.UsernameTaken
         await self.service.adapters.redis.user.username_take(user.username)
         _user: models.User = models.User.model_validate(

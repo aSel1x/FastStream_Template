@@ -10,7 +10,7 @@ class UserRepo(Repository[models.User]):
         super().__init__(model=models.User, client=client)
 
     async def username_take(self, username: str) -> None:
-        await self.client.lpush('taken_usernames', username)
+        await self.client.sadd('taken_usernames', username)
 
-    async def username_check(self, username: str) -> int | None:
-        return await self.client.lpos('taken_usernames', username)
+    async def username_check(self, username: str) -> bool:
+        return await self.client.sismember('taken_usernames', username)
