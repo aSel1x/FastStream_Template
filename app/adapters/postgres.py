@@ -4,30 +4,20 @@ from pydantic import PostgresDsn
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.utils.singleton import Singleton
 from app.repositories import postgres as repos
 
 
-class PostgresDB:
-    user: repos.UserRepo
-
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
+class PostgresDB(metaclass=Singleton):
     def __init__(
             self,
             pg_dsn: PostgresDsn,
             engine: AsyncEngine | None = None,
             session_maker: async_sessionmaker | None = None,
     ) -> None:
-        if not hasattr(self, 'initialized'):
-            self.__pg_dsn = pg_dsn
-            self.__engine = engine
-            self.__session_maker = session_maker
-            self.__initialized = True
+        self.__pg_dsn = pg_dsn
+        self.__engine = engine
+        self.__session_maker = session_maker
 
     async def __set_async_engine(self) -> None:
         if self.__engine is None:
