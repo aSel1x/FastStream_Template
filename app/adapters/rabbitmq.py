@@ -9,15 +9,10 @@ from taskiq import ScheduledTask, TaskiqScheduler
 from taskiq_aio_pika import AioPikaBroker
 from taskiq_redis import RedisScheduleSource
 
+from app.utils.singleton import Singleton
 
-class RabbitQueue:
-    _instance = None
 
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
+class RabbitQueue(metaclass=Singleton):
     def __init__(
         self,
         rabbit_dsn: AmqpDsn,
@@ -29,16 +24,14 @@ class RabbitQueue:
         taskiq_scheduler_source: RedisScheduleSource | None = None,
         taskiq_scheduler: TaskiqScheduler | None = None,
     ) -> None:
-        if not hasattr(self, "initialized"):
-            self.__rabbit_dsn = rabbit_dsn
-            self.__redis_dsn = redis_dsn
-            self.__faststream_broker = faststream_broker
-            self.__faststream_broker_connect = faststream_broker_connect
-            self.__faststream_app = faststream_app
-            self.__taskiq_broker = taskiq_broker
-            self.__taskiq_scheduler_source = taskiq_scheduler_source
-            self.__taskiq_scheduler = taskiq_scheduler
-            self.__initialized = True
+        self.__rabbit_dsn = rabbit_dsn
+        self.__redis_dsn = redis_dsn
+        self.__faststream_broker = faststream_broker
+        self.__faststream_broker_connect = faststream_broker_connect
+        self.__faststream_app = faststream_app
+        self.__taskiq_broker = taskiq_broker
+        self.__taskiq_scheduler_source = taskiq_scheduler_source
+        self.__taskiq_scheduler = taskiq_scheduler
 
     async def create_task(
         self,

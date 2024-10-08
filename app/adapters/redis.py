@@ -7,26 +7,18 @@ from typing import Self
 from pydantic import RedisDsn
 from redis.asyncio import Redis
 
+from app.utils.singleton import Singleton
 from app.repositories import redis as repos
 
 
-class RedisDB:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
+class RedisDB(metaclass=Singleton):
     def __init__(
             self,
             redis_dsn: RedisDsn,
             client: Redis | None = None
     ) -> None:
-        if not hasattr(self, 'initialized'):
-            self.__client = client
-            self.__redis_dsn = redis_dsn
-            self.__initialized = True
+        self.__client = client
+        self.__redis_dsn = redis_dsn
 
     async def __set_redis(self) -> None:
         if self.__client is None:
