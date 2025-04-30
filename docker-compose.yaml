@@ -1,91 +1,32 @@
-version: '3.8'
+version: '3.9'
 name: faststream-template
 services:
-  http:
+  api:
     build: .
+    container_name: app.api
+    image: app
     env_file:
       - .env
-    environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: >
-      sh -c "
-      poetry run alembic upgrade head || (echo 'Migration failed' && exit 1);
-      poetry run uvicorn app:http --reload --host 0.0.0.0
-      "
+    command: ["uvicorn", "--factory", "presentation.api:get_litestar", "--reload", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbit:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
 
-  amqp:
-    build: .
+  postgres_migration:
+    image: app
+    container_name: app.postgres_migration
     env_file:
       - .env
-    environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: sh -c "poetry run faststream run app:amqp --reload"
-    depends_on:
-      http:
-        condition: service_started
-
-  scheduler:
     build: .
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: "postgres"
-      RABBIT_HOST: "rabbit"
-      REDIS_HOST: "redis"
-    entrypoint: sh -c "poetry run taskiq scheduler app:scheduler"
-    depends_on:
-      amqp:
-        condition: service_started
+    volumes:
+      - ./alembic.ini:/src/alembic.ini:ro
+    command: ["alembic", "upgrade", "head"]
+    networks:
+      - shared
 
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: $POSTGRES_USER
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
-      POSTGRES_DB: $POSTGRES_DB
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost
-      interval: 10s
-      timeout: 30s
-      retries: 5
-      start_period: 80s
-
-  rabbit:
-    image: rabbitmq:3.13-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: $RABBIT_USERNAME
-      RABBITMQ_DEFAULT_PASS: $RABBIT_PASSWORD
-    ports:
-      - "5672:5672"
-    healthcheck:
-      test: rabbitmqctl ping
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  redis:
-    image: redis:7-alpine
-    environment:
-      ALLOW_EMPTY_PASSWORD: "yes"
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: redis-cli ping
-      interval: 10s
-      timeout: 30s
-      retries: 5
+networks:
+  shared:
+    external: True
