@@ -6,10 +6,6 @@ help:
 	@echo "AVAILABLE COMMANDS"
 	@echo "  ref		        Reformat code"
 	@echo "  http		        Start the HTTP app"
-	@echo "  amqp		        Start the AMQP app"
-	@echo "  scheduler	        Start the Scheduler app"
-	@echo "  tests		        Start the pytest tests"
-	@echo "  docker		        Docker container build"
 	@echo "  docker-tests		Tests docker container build"
 	@echo "  migrate	        Alembic migrate database"
 	@echo "  generate	        Alembic generate database"
@@ -23,30 +19,11 @@ ref:
 .PHONY: http
 http:
 	set -a; source .env; set +a; \
-	poetry run uvicorn app:http --limit-concurrency 1000 --reload
-
-.PHONY: amqp
-amqp:
-	set -a; source .env; set +a; \
-	poetry run faststream run app:amqp --reload
-
-.PHONY: scheduler
-scheduler:
-	set -a; source .env; set +a; \
-	poetry run taskiq scheduler app:scheduler
-
-.PHONY: tests
-tests:
-	set -a; source .env; source .env.tests; set +a; \
-	poetry run pytest
+	poetry run uvicorn --factory presentation.api:get_litestar --reload
 
 .PHONY: docker
 docker:
 	docker-compose up -d --build
-
-.PHONY: docker-tests
-docker-tests:
-	docker-compose -f docker-compose-tests.yaml up --exit-code-from tests
 
 .PHONY: migrate
 migrate:

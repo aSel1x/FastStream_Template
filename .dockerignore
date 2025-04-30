@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.env
+*.swp
+*.egg-info
+dist
+build

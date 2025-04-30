@@ -1,0 +1,28 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Generic, TypeVar
+
+
+@dataclass(frozen=True)
+class ValueObjectInterface(ABC):
+    def __post_init__(self) -> None:
+        self._validate()
+
+    @abstractmethod
+    def _validate(self) -> None:
+        pass
+
+
+V = TypeVar('V', bound=Any)
+
+
+@dataclass(frozen=True)
+class BaseValueObject(ValueObjectInterface, ABC, Generic[V]):
+    value: V
+
+    @abstractmethod
+    def _validate(self) -> None:
+        raise NotImplementedError
+
+    def to_raw(self) -> V:
+        return self.value

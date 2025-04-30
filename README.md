@@ -16,10 +16,6 @@
 
    `make http` - to run HTTP;
 
-   `make amqp` - to run AMQP;
-
-   `make scheduler` - to run scheduler
-
 ### To run the application tests:
 `make test`
 
