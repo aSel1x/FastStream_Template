@@ -2,8 +2,8 @@ from typing import Protocol
 
 
 class JWTInterface(Protocol):
-    async def generate(self, payload: dict, exp: int) -> str:
-        pass
+    async def generate(self, payload: dict[str, str], exp: int) -> str:
+        raise NotImplementedError
 
-    async def extract(self, token: str) -> dict:
-        pass
+    async def extract(self, token: str) -> dict[str, str]:
+        raise NotImplementedError

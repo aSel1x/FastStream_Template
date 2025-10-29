@@ -1,13 +1,58 @@
-version: '3.9'
 name: faststream-template
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: app.postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: app.rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - shared
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     container_name: app.api
     image: app
     env_file:
       - .env
-    command: ["uvicorn", "--factory", "presentation.api:get_litestar", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres_migration:
+        condition: service_completed_successfully
+    command: sh -c "pip install uvicorn && python -m uvicorn presentation.api:get_litestar --factory --reload --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     volumes:
@@ -15,18 +60,41 @@ services:
     networks:
       - shared
 
-  postgres_migration:
+  queue:
+    build: .
+    container_name: app.queue
     image: app
-    container_name: app.postgres_migration
     env_file:
       - .env
-    build: .
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    command: ["faststream", "run", "presentation.queue.app:app", "--workers", "1"]
     volumes:
-      - ./alembic.ini:/src/alembic.ini:ro
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
+  postgres_migration:
+    build: .
+    container_name: app.postgres_migration
+    image: app
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - "./alembic.ini:/src/alembic.ini"
     command: ["alembic", "upgrade", "head"]
     networks:
       - shared
 
 networks:
   shared:
-    external: True
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

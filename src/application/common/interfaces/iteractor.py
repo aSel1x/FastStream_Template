@@ -1,11 +1,9 @@
-from abc import abstractmethod
 from typing import Generic, Protocol, TypeVar
 
-Input = TypeVar('Input')
-Output = TypeVar('Output')
+Input = TypeVar('Input', contravariant=True)
+Output = TypeVar('Output', covariant=True)
 
 
 class InteractorInterface(Generic[Input, Output], Protocol):
-    @abstractmethod
     async def __call__(self, input: Input) -> Output:
-        pass
+        raise NotImplementedError

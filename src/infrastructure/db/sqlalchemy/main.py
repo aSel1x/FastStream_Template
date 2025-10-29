@@ -31,3 +31,15 @@ def build_sa_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSes
         bind=engine, autoflush=False, expire_on_commit=False
     )
     return session_factory
+
+
+class SessionFactory:
+    _factory: async_sessionmaker[AsyncSession]
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._factory = async_sessionmaker(
+            bind=engine, autoflush=False, expire_on_commit=False
+        )
+
+    def __call__(self) -> AsyncSession:
+        return self._factory()

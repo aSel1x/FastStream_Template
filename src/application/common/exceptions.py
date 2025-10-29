@@ -1,7 +1,10 @@
-from domain.common import AppError
+from typing import override
+
+from domain.common.exception import BaseAppError
 
 
-class BaseApplicationError(AppError):
+class BaseApplicationError(BaseAppError):
     @property
+    @override
     def detail(self) -> str:
         return 'An application error occurred'
