@@ -1,33 +1,33 @@
-import sqlalchemy as sa
 from domain.user import entities
-from sqlalchemy.orm import Mapped, mapped_column
-
+from domain.user import value_objects as vo
 from infrastructure.db.sqlalchemy.models.base import (
     AuditMixin,
-    BaseModel,
     UUIDMixin,
-    mapper_registry,
+    create_mapping,
+    create_table,
+)
+
+import sqlalchemy as sa
+from sqlalchemy.orm import composite
+
+USERS_TABLE = create_table(
+    'users',
+    sa.Column('username', sa.String, unique=True),
+    sa.Column('email', sa.String, unique=True, nullable=True),
+    sa.Column('hashed_password', sa.LargeBinary, nullable=False),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    mixins={UUIDMixin, AuditMixin},
 )
 
 
-class UserModel(UUIDMixin, AuditMixin, BaseModel):
-    __tablename__ = 'users'
-
-    username: Mapped[str] = mapped_column(sa.String(255), unique=True, nullable=False)
-    hashed_password: Mapped[bytes] = mapped_column(sa.LargeBinary, nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-
-
-mapper_registry.map_imperatively(
+_ = create_mapping(
     entities.User,
-    UserModel.__table__,
+    USERS_TABLE,
     properties={
-        'uuid': UserModel.uuid,
-        'created_at': UserModel.created_at,
-        'updated_at': UserModel.updated_at,
-        'username': UserModel.username,
-        'hashed_password': UserModel.hashed_password,
-        'is_active': UserModel.is_active,
+        'username': composite(vo.Username, USERS_TABLE.c.username),
+        'email': composite(vo.Email, USERS_TABLE.c.email),
+        'hashed_password': composite(vo.HashedPassword, USERS_TABLE.c.hashed_password),
+        'deleted_at': composite(vo.DeletionTime, USERS_TABLE.c.deleted_at),
     },
-    column_prefix='_',
+    mixins={UUIDMixin, AuditMixin},
 )

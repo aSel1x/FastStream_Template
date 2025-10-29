@@ -1,23 +1,57 @@
-from uuid import UUID
+from typing import override
 
-from application.user import dto
+from domain.common.entity import EntityUUID
 from domain.user import entities
 from domain.user.interfaces import UserRepositoryInterface
+from domain.user.value_objects import Email, Username
+from infrastructure.utils import singleton
 
 
+@singleton
 class InMemoryUserRepo(UserRepositoryInterface):
-    def __init__(self):
-        self._users: dict[UUID, entities.User] = {}
+    def __init__(self) -> None:
+        self._users: dict[EntityUUID, entities.User] = {}
 
-    async def acquire_by_uuid(self, user_uuid: UUID) -> dto.UserDTO:
-        if user_uuid not in self._users:
-            raise  #  TODO: UserNotFoundException
-        return self._users[user_uuid]
+    @override
+    async def acquire_by_uuid(self, user_id: EntityUUID) -> entities.User | None:
+        return self._users.get(user_id)
 
+    @override
+    async def acquire_by_username(self, username: Username) -> entities.User | None:
+        for user in self._users.values():
+            if user.username.to_raw() == username.to_raw():
+                return user
+        return None
+
+    @override
+    async def acquire_by_email(self, email: Email) -> entities.User | None:
+        if email.to_raw() is None:
+            return None
+        for user in self._users.values():
+            if user.email.to_raw() == email.to_raw():
+                return user
+        return None
+
+    @override
     async def add(self, user: entities.User) -> None:
         self._users[user.uuid] = user
 
-    async def check_username_exists(self, username: str) -> bool:
+    @override
+    async def update(self, user: entities.User) -> None:
+        self._users[user.uuid] = user
+
+    @override
+    async def check_username_exists(self, username: Username) -> bool:
         for user in self._users.values():
-            if user.username == username:
+            if user.username.to_raw() == username.to_raw():
                 return True
+        return False
+
+    @override
+    async def check_email_exists(self, email: Email) -> bool:
+        if email.to_raw() is None:
+            return False
+        for user in self._users.values():
+            if user.email.to_raw() == email.to_raw():
+                return True
+        return False

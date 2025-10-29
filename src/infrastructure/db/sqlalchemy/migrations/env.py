@@ -4,7 +4,6 @@ from logging.config import fileConfig
 from alembic import context
 from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
 from infrastructure.db.sqlalchemy.models.base import BaseModel
-from infrastructure.db.sqlalchemy.models.user import UserModel
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -24,7 +23,6 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-(UserModel,)
 target_metadata = BaseModel.metadata
 
 config.set_main_option('sqlalchemy.url', sa_config.full_url)

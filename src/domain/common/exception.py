@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, override
+
+# pyright: reportUnsafeMultipleInheritance=false
 
 
 @dataclass(eq=False)
@@ -13,5 +15,6 @@ class BaseAppError(Exception):
 
 class BaseDomainError(BaseAppError):
     @property
+    @override
     def detail(self) -> str:
         return 'A domain error occurred'

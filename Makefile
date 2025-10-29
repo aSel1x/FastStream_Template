@@ -4,37 +4,58 @@ help:
 	@echo "  make <commands>"
 	@echo ""
 	@echo "AVAILABLE COMMANDS"
-	@echo "  ref		        Reformat code"
-	@echo "  http		        Start the HTTP app"
-	@echo "  docker-tests		Tests docker container build"
-	@echo "  migrate	        Alembic migrate database"
-	@echo "  generate	        Alembic generate database"
-	@echo "  req		        pyproject.toml >> requirements.txt"
+	@echo "  build            Build and start all services (API + Queue + RabbitMQ + Postgres)"
+	@echo "  start              Start all services (API + Queue + RabbitMQ + Postgres)"
+	@echo "  restart          Restart all docker containers"
+	@echo "  stop             Stop all docker containers"
+	@echo "  logs-api         Show API logs"
+	@echo "  logs-queue       Show Queue consumer logs"
+	@echo "  logs-rabbitmq    Show RabbitMQ logs"
+	@echo "  rabbitmq-ui      Open RabbitMQ management UI"
+	@echo "  migration        Create alembic database migration"
 
 
-.PHONY: ref
-ref:
-	poetry run pre-commit run --all-files
+export PYTHONPATH=src
+ifneq (,$(wildcard .env))
+	include .env
+	export $(shell sed 's/=.*//' .env)
+endif
 
-.PHONY: http
-http:
-	set -a; source .env; set +a; \
-	poetry run uvicorn --factory presentation.api:get_litestar --reload
 
-.PHONY: docker
-docker:
+.PHONY: build
+build:
 	docker-compose up -d --build
 
-.PHONY: migrate
-migrate:
-	set -a; source .env; set +a; \
-	poetry run alembic upgrade head
+.PHONY: start
+start:
+	docker-compose start
 
-.PHONY: generate
-generate:
-	set -a; source .env; set +a; \
-	poetry run alembic revision --autogenerate
+.PHONY: restart
+restart:
+	docker-compose stop && docker-compose start
 
-.PHONY: req
-req:
-	@poetry export --without-hashes --without-urls | sed 's/;.*//' | tee requirements.txt
+.PHONY: stop
+stop:
+	docker-compose stop
+
+.PHONY: logs-api
+logs-api:
+	docker-compose logs -f api
+
+.PHONY: logs-queue
+logs-queue:
+	docker-compose logs -f queue
+
+.PHONY: logs-rabbitmq
+logs-rabbitmq:
+	docker-compose logs -f rabbitmq
+
+.PHONY: rabbitmq-ui
+rabbitmq-ui:
+	@echo "Opening RabbitMQ Management UI at http://localhost:15672"
+	@echo "Default credentials: guest / guest"
+	@open http://localhost:15672 2>/dev/null || xdg-open http://localhost:15672 2>/dev/null || echo "Please open http://localhost:15672 manually"
+
+.PHONY: migration
+migration:
+	cd src && POSTGRES_HOST=localhost uv run alembic -c ../alembic.ini revision --autogenerate

@@ -13,16 +13,12 @@ class ValueObjectInterface(ABC):
         pass
 
 
-V = TypeVar('V', bound=Any)
+V = TypeVar('V', bound=Any)  # pyright: ignore[reportExplicitAny]
 
 
 @dataclass(frozen=True)
 class BaseValueObject(ValueObjectInterface, ABC, Generic[V]):
     value: V
-
-    @abstractmethod
-    def _validate(self) -> None:
-        raise NotImplementedError
 
     def to_raw(self) -> V:
         return self.value

@@ -1,23 +1,25 @@
-FROM python:3.12.1-slim-bullseye as builder
+FROM ghcr.io/astral-sh/uv:latest as uv
+FROM python:3.13-slim-bookworm as builder
 
-COPY poetry.lock pyproject.toml ./
+COPY --from=uv /uv /uvx /bin/
+COPY uv.lock pyproject.toml ./
 
-RUN python -m pip install poetry poetry-plugin-export && \
-    poetry export -o requirements.prod.txt --without-hashes && \
-    poetry export --with=dev -o requirements.dev.txt --without-hashes
+RUN uv pip compile pyproject.toml -o requirements.prod.txt && \
+    uv pip compile --group dev pyproject.toml -o requirements.dev.txt
 
-FROM python:3.12.1-slim-bullseye as dev
+FROM python:3.13-slim-bookworm as dev
 
 WORKDIR /src
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 COPY --from=builder requirements.dev.txt /src
 
-RUN apt update -y && \
-    apt install -y python3-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-dev \
     gcc \
-    musl-dev && \
+    && rm -rf /var/lib/apt/lists/* && \
     pip install --upgrade pip && pip install --no-cache-dir -r requirements.dev.txt
 
-COPY ./src ./src
+COPY ./src .
