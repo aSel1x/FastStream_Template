@@ -86,6 +86,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      - "./src/infrastructure/db/sqlalchemy/migrations/versions:/src/infrastructure/db/sqlalchemy/migrations/versions"
       - "./alembic.ini:/src/alembic.ini"
     command: ["alembic", "upgrade", "head"]
     networks:

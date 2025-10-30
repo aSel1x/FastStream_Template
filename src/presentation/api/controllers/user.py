@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from application.user.iteractors.create import CreateUserInputDTO, CreateUserInteractor
+from application.user.iteractors.delete_me import DeleteMeInteractor
 from application.user.iteractors.get_me import GetMeInteractor, GetMeOutputDTO
 from application.user.iteractors.login import LoginInputDTO, LoginInteractor
 from application.user.iteractors.refresh_token import (
@@ -14,7 +15,7 @@ from application.user.iteractors.update_profile import (
     UpdateProfileInteractor,
     UpdateProfileOutputDTO,
 )
-from litestar import Controller, Request, get, patch, post
+from litestar import Controller, Request, delete, get, patch, post
 from litestar.datastructures.state import State
 from litestar.exceptions import NotAuthorizedException
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
@@ -117,3 +118,23 @@ class UserController(Controller):
 
         user_id = UUID(user_id_str)
         return await update_profile_interactor((user_id, data))
+
+    @delete(
+        '/me',
+        status_code=HTTP_200_OK,
+        summary='Delete current user account',
+        tags=['users'],
+    )
+    @inject
+    async def delete_me(
+        self,
+        request: Request[object, object, State],
+        delete_me_interactor: Annotated[DeleteMeInteractor, Depends()],
+    ) -> None:
+        """Delete authenticated user account."""
+        user_id_str: str | None = getattr(request.app.state, 'user_id', None)
+        if not user_id_str:
+            raise NotAuthorizedException(detail='Authentication required')
+
+        user_id = UUID(user_id_str)
+        await delete_me_interactor(user_id)

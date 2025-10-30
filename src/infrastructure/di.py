@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 
 from application.common.interfaces import UnitOfWorkInterface
 from application.user.iteractors.create import CreateUserInteractor
+from application.user.iteractors.delete_me import DeleteMeInteractor
 from application.user.iteractors.get_me import GetMeInteractor
 from application.user.iteractors.login import LoginInteractor
 from application.user.iteractors.refresh_token import RefreshTokenInteractor
@@ -142,3 +143,11 @@ class AppContainer(Container):
         user_service: UserService,
     ) -> UpdateProfileInteractor:
         return UpdateProfileInteractor(uow=uow, user_service=user_service)
+
+    @provider(scope=Scope.REQUEST)
+    def delete_me_interactor(
+        self,
+        uow: UnitOfWorkInterface,
+        user_service: UserService,
+    ) -> DeleteMeInteractor:
+        return DeleteMeInteractor(uow=uow, user_service=user_service)

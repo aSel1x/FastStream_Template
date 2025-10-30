@@ -8,6 +8,9 @@ from infrastructure.mediator import register_event_handlers
 from infrastructure.queue import RabbitMQConfig
 from litestar import Litestar
 from litestar.middleware import DefineMiddleware
+from litestar.openapi.config import OpenAPIConfig
+from litestar.openapi.spec.components import Components
+from litestar.openapi.spec.security_scheme import SecurityScheme
 from spritze import init
 
 from presentation.api.controllers.user import UserController
@@ -34,6 +37,23 @@ def get_litestar() -> Litestar:
 
     jwt_service = container.jwt_service(jwt_config=jwt_config)
 
+    components = Components(
+        security_schemes={
+            'bearerAuth': SecurityScheme(
+                type='http',
+                scheme='bearer',
+                bearer_format='JWT',
+                description="JWT Authorization header using the Bearer scheme. Example: 'Authorization: Bearer {token}'",
+            )
+        }
+    )
+    openapi_config = OpenAPIConfig(
+        title='FastStream API',
+        version='1.0.0',
+        components=components,
+        security=[{'bearerAuth': []}],
+    )
+
     app = Litestar(
         route_handlers=[UserController],
         exception_handlers={
@@ -45,6 +65,7 @@ def get_litestar() -> Litestar:
             )
         ],
         debug=True,
+        openapi_config=openapi_config,
     )
 
     return app
