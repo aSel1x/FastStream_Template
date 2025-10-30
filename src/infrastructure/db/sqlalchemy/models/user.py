@@ -12,7 +12,7 @@ from sqlalchemy.orm import composite
 
 USERS_TABLE = create_table(
     'users',
-    sa.Column('username', sa.String, unique=True),
+    sa.Column('username', sa.String, unique=True, nullable=False),
     sa.Column('email', sa.String, unique=True, nullable=True),
     sa.Column('hashed_password', sa.LargeBinary, nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),

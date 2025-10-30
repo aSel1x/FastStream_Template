@@ -48,6 +48,7 @@ class SQLAlchemyUserRepo(SQLAlchemyRepo, UserRepositoryInterface):
     async def update(self, user: entities.User) -> None:
         _ = await self._session.merge(user)
         await self._session.flush()
+        await self._session.refresh(user)
 
     @override
     async def check_username_exists(self, username: Username) -> bool:

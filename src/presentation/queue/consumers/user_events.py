@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import logging
-
+from faststream.annotations import Logger
 from faststream.rabbit import ExchangeType, RabbitExchange, RabbitQueue, RabbitRouter
 
 from presentation.queue.schemas import (
@@ -10,9 +9,6 @@ from presentation.queue.schemas import (
     UserDeletedEventSchema,
     UserProfileUpdatedEventSchema,
 )
-
-logger = logging.getLogger(__name__)
-
 
 user_events_exchange = RabbitExchange(
     name='domain_events',
@@ -32,23 +28,13 @@ router = RabbitRouter()
     ),
     exchange=user_events_exchange,
 )
-async def handle_user_created(event: UserCreatedEventSchema) -> None:
-    user_id = event.data.user_id
-    username = event.data.username
-    email = event.data.email or 'N/A'
-
+async def handle_user_created(event: UserCreatedEventSchema, logger: Logger) -> None:
     logger.info(
         'Processing UserCreatedEvent: user_id=%s, username=%s, email=%s',
-        user_id,
-        username,
-        email,
+        event.data.user_id,
+        event.data.username,
+        event.data.email or 'N/A',
     )
-
-    logger.info('Sending welcome email to %s (%s)', username, email)
-
-    logger.info('Initializing analytics for user %s', user_id)
-
-    logger.info('Successfully processed UserCreatedEvent for user %s', user_id)
 
 
 @router.subscriber(
@@ -59,21 +45,14 @@ async def handle_user_created(event: UserCreatedEventSchema) -> None:
     ),
     exchange=user_events_exchange,
 )
-async def handle_user_authenticated(event: UserAuthenticatedEventSchema) -> None:
-    user_id = event.data.user_id
-    username = event.data.username
-
+async def handle_user_authenticated(
+    event: UserAuthenticatedEventSchema, logger: Logger
+) -> None:
     logger.info(
         'Processing UserAuthenticatedEvent: user_id=%s, username=%s',
-        user_id,
-        username,
+        event.data.user_id,
+        event.data.username,
     )
-
-    logger.info('Updating last login timestamp for user %s', user_id)
-
-    logger.info('Recording authentication analytics for user %s', user_id)
-
-    logger.info('Successfully processed UserAuthenticatedEvent for user %s', user_id)
 
 
 @router.subscriber(
@@ -84,21 +63,14 @@ async def handle_user_authenticated(event: UserAuthenticatedEventSchema) -> None
     ),
     exchange=user_events_exchange,
 )
-async def handle_user_profile_updated(event: UserProfileUpdatedEventSchema) -> None:
-    user_id = event.data.user_id
-    updated_fields = event.data.updated_fields
-
+async def handle_user_profile_updated(
+    event: UserProfileUpdatedEventSchema, logger: Logger
+) -> None:
     logger.info(
         'Processing UserProfileUpdatedEvent: user_id=%s, updated_fields=%s',
-        user_id,
-        updated_fields,
+        event.data.user_id,
+        event.data.updated_fields,
     )
-
-    logger.info('Syncing user profile %s with external systems', user_id)
-
-    logger.info('Invalidating cache for user %s', user_id)
-
-    logger.info('Successfully processed UserProfileUpdatedEvent for user %s', user_id)
 
 
 @router.subscriber(
@@ -109,13 +81,5 @@ async def handle_user_profile_updated(event: UserProfileUpdatedEventSchema) -> N
     ),
     exchange=user_events_exchange,
 )
-async def handle_user_deleted(event: UserDeletedEventSchema) -> None:
-    user_id = event.data.user_id
-
-    logger.info('Processing UserDeletedEvent: user_id=%s', user_id)
-
-    logger.info('Cleaning up data for deleted user %s', user_id)
-
-    logger.info('Removing analytics data for user %s', user_id)
-
-    logger.info('Successfully processed UserDeletedEvent for user %s', user_id)
+async def handle_user_deleted(event: UserDeletedEventSchema, logger: Logger) -> None:
+    logger.info('Processing UserDeletedEvent: user_id=%s', event.data.user_id)
