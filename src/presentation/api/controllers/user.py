@@ -1,7 +1,10 @@
 from typing import Annotated
 from uuid import UUID
 
-from application.user.iteractors.create import CreateUserInputDTO, CreateUserInteractor
+from application.user.iteractors.create_user import (
+    CreateUserInputDTO,
+    CreateUserInteractor,
+)
 from application.user.iteractors.delete_me import DeleteMeInteractor
 from application.user.iteractors.get_me import GetMeInteractor, GetMeOutputDTO
 from application.user.iteractors.login import LoginInputDTO, LoginInteractor

@@ -19,7 +19,7 @@ dependencies = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "python-dotenv>=1.1.1",
-    "spritze>=0.2.2",
+    "spritze==0.3.5",
     "sqlalchemy>=2.0.44",
     "types-pyjwt>=1.7.1",
 ]
@@ -28,4 +28,9 @@ dependencies = [
 dev = [
     "basedpyright>=1.32.1",
     "ruff>=0.14.2",
+]
+
+[tool.basedpyright]
+ignore = [
+    "**/migrations",
 ]
