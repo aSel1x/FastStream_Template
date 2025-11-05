@@ -1,17 +1,18 @@
 from functools import partial
 
 from domain.common.exception import BaseAppError
+from domain.user.interfaces import JWTInterface
 from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
 from infrastructure.di import AppContainer
 from infrastructure.jwt import JWTConfig
-from infrastructure.mediator import register_event_handlers
+from infrastructure.mediator import EventBus, register_event_handlers
 from infrastructure.queue import RabbitMQConfig
 from litestar import Litestar
 from litestar.middleware import DefineMiddleware
 from litestar.openapi.config import OpenAPIConfig
 from litestar.openapi.spec.components import Components
 from litestar.openapi.spec.security_scheme import SecurityScheme
-from spritze import init
+from spritze import init, resolve
 
 from presentation.api.controllers.user import UserController
 from presentation.api.exception_handlers import app_exception_handler
@@ -23,19 +24,19 @@ def get_litestar() -> Litestar:
     rabbitmq_config = RabbitMQConfig.from_environ()
     sqlalchemy_config = SQLAlchemyConfig.from_environ()
 
-    container = AppContainer()
-    container.context.update(
-        JWTConfig=jwt_config,
-        RabbitMQConfig=rabbitmq_config,
-        SQLAlchemyConfig=sqlalchemy_config,
+    init(
+        AppContainer(),
+        context={
+            JWTConfig: jwt_config,
+            RabbitMQConfig: rabbitmq_config,
+            SQLAlchemyConfig: sqlalchemy_config,
+        },
     )
 
-    init(container)
-
-    event_bus = container.event_bus()
+    event_bus = resolve(EventBus)
     register_event_handlers(event_bus)
 
-    jwt_service = container.jwt_service(jwt_config=jwt_config)
+    jwt_service = resolve(JWTInterface)
 
     components = Components(
         security_schemes={

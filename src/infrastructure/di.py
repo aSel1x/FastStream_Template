@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 
 from application.common.interfaces import UnitOfWorkInterface
-from application.user.iteractors.create import CreateUserInteractor
+from application.user.iteractors.create_user import CreateUserInteractor
 from application.user.iteractors.delete_me import DeleteMeInteractor
 from application.user.iteractors.get_me import GetMeInteractor
 from application.user.iteractors.login import LoginInteractor
@@ -9,7 +9,7 @@ from application.user.iteractors.refresh_token import RefreshTokenInteractor
 from application.user.iteractors.update_profile import UpdateProfileInteractor
 from domain.user.interfaces import CryptInterface, JWTInterface, UserRepositoryInterface
 from domain.user.service import UserService
-from spritze import Container, ContextField, Scope, context, provider
+from spritze import Container, ContextField, Scope, provider
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -27,23 +27,16 @@ from infrastructure.queue import EventPublisher, RabbitMQConfig
 
 
 class AppContainer(Container):
-    jwt_config_ctx: ContextField[JWTConfig] = context.get(JWTConfig)
-    rabbitmq_config_ctx: ContextField[RabbitMQConfig] = context.get(RabbitMQConfig)
-    sqlalchemy_config_ctx: ContextField[SQLAlchemyConfig] = context.get(
+    jwt_config_ctx: ContextField[JWTConfig] = ContextField(JWTConfig)
+    rabbitmq_config_ctx: ContextField[RabbitMQConfig] = ContextField(RabbitMQConfig)
+    sqlalchemy_config_ctx: ContextField[SQLAlchemyConfig] = ContextField(
         SQLAlchemyConfig
     )
 
-    @provider(scope=Scope.APP)
-    def event_bus(self) -> EventBus:
-        return EventBus()
+    event_bus: object = provider(EventBus, scope=Scope.APP)
+    event_publisher: object = provider(EventPublisher, scope=Scope.APP)
 
-    @provider(scope=Scope.APP)
-    def event_publisher(self, rabbitmq_config: RabbitMQConfig) -> EventPublisher:
-        return EventPublisher(rabbitmq_config)
-
-    @provider(scope=Scope.APP)
-    def crypt(self) -> CryptInterface:
-        return Crypt()
+    crypt: object = provider(Crypt, provides=CryptInterface, scope=Scope.APP)
 
     @provider(scope=Scope.APP)
     def jwt_service(self, jwt_config: JWTConfig) -> JWTInterface:
@@ -61,9 +54,7 @@ class AppContainer(Container):
             pool_size=50,
         )
 
-    @provider(scope=Scope.APP)
-    def session_factory(self, db_engine: AsyncEngine) -> SessionFactory:
-        return SessionFactory(db_engine)
+    session_factory: object = provider(SessionFactory, scope=Scope.APP)
 
     @provider(scope=Scope.REQUEST)
     async def db_session(
@@ -72,82 +63,27 @@ class AppContainer(Container):
         async with session_factory() as session:
             yield session
 
-    @provider(scope=Scope.REQUEST)
-    def user_repo(self, db_session: AsyncSession) -> UserRepositoryInterface:
-        return SQLAlchemyUserRepo(db_session)
+    user_repo: object = provider(
+        SQLAlchemyUserRepo,
+        provides=UserRepositoryInterface,
+        scope=Scope.REQUEST,
+    )
 
-    @provider(scope=Scope.REQUEST)
-    def uow(
-        self,
-        db_session: AsyncSession,
-        event_bus: EventBus,
-        event_publisher: EventPublisher,
-    ) -> UnitOfWorkInterface:
-        return SQLAlchemyUoW(
-            session=db_session,
-            event_bus=event_bus,
-            event_publisher=event_publisher,
-        )
+    uow: object = provider(
+        SQLAlchemyUoW,
+        provides=UnitOfWorkInterface,
+        scope=Scope.REQUEST,
+    )
 
-    @provider(scope=Scope.REQUEST)
-    def user_service(
-        self,
-        crypt: CryptInterface,
-        user_repo: UserRepositoryInterface,
-    ) -> UserService:
-        return UserService(
-            user_repo=user_repo,
-            crypt=crypt,
-        )
+    user_service: object = provider(UserService, scope=Scope.REQUEST)
 
-    @provider(scope=Scope.REQUEST)
-    def create_user_interactor(
-        self,
-        uow: UnitOfWorkInterface,
-        user_service: UserService,
-    ) -> CreateUserInteractor:
-        return CreateUserInteractor(uow=uow, user_service=user_service)
-
-    @provider(scope=Scope.REQUEST)
-    def login_interactor(
-        self,
-        uow: UnitOfWorkInterface,
-        user_service: UserService,
-        jwt_service: JWTInterface,
-    ) -> LoginInteractor:
-        return LoginInteractor(
-            uow=uow,
-            user_service=user_service,
-            jwt_service=jwt_service,
-        )
-
-    @provider(scope=Scope.REQUEST)
-    def refresh_token_interactor(
-        self,
-        jwt_service: JWTInterface,
-    ) -> RefreshTokenInteractor:
-        return RefreshTokenInteractor(jwt_service=jwt_service)
-
-    @provider(scope=Scope.REQUEST)
-    def get_me_interactor(
-        self,
-        uow: UnitOfWorkInterface,
-        user_service: UserService,
-    ) -> GetMeInteractor:
-        return GetMeInteractor(uow=uow, user_service=user_service)
-
-    @provider(scope=Scope.REQUEST)
-    def update_profile_interactor(
-        self,
-        uow: UnitOfWorkInterface,
-        user_service: UserService,
-    ) -> UpdateProfileInteractor:
-        return UpdateProfileInteractor(uow=uow, user_service=user_service)
-
-    @provider(scope=Scope.REQUEST)
-    def delete_me_interactor(
-        self,
-        uow: UnitOfWorkInterface,
-        user_service: UserService,
-    ) -> DeleteMeInteractor:
-        return DeleteMeInteractor(uow=uow, user_service=user_service)
+    create_user_interactor: object = provider(CreateUserInteractor, scope=Scope.REQUEST)
+    login_interactor: object = provider(LoginInteractor, scope=Scope.REQUEST)
+    refresh_token_interactor: object = provider(
+        RefreshTokenInteractor, scope=Scope.REQUEST
+    )
+    get_me_interactor: object = provider(GetMeInteractor, scope=Scope.REQUEST)
+    update_profile_interactor: object = provider(
+        UpdateProfileInteractor, scope=Scope.REQUEST
+    )
+    delete_me_interactor: object = provider(DeleteMeInteractor, scope=Scope.REQUEST)

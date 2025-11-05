@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
 
 import aio_pika
+from aio_pika.abc import AbstractChannel, AbstractConnection
 from aio_pika.pool import Pool
+from domain.common.event import BaseEvent
 
-if TYPE_CHECKING:
-    from aio_pika.abc import AbstractChannel, AbstractConnection
-    from domain.common.event import BaseEvent
-
-    from infrastructure.queue.config import RabbitMQConfig
+from infrastructure.queue.config import RabbitMQConfig
 
 logger = logging.getLogger(__name__)
 
