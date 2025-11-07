@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import UUID
 
 from application.user.iteractors.create_user import (
     CreateUserInputDTO,
@@ -20,9 +19,11 @@ from application.user.iteractors.update_profile import (
 )
 from litestar import Controller, Request, delete, get, patch, post
 from litestar.datastructures.state import State
-from litestar.exceptions import NotAuthorizedException
+from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 from spritze import Depends, inject
+
+from presentation.api.security import UserSecuritySchema
 
 
 class UserController(Controller):
@@ -90,16 +91,12 @@ class UserController(Controller):
     @inject
     async def get_me(
         self,
-        request: Request[object, object, State],
+        request: Request[UserSecuritySchema, Token, State],
         get_me_interactor: Annotated[GetMeInteractor, Depends()],
     ) -> GetMeOutputDTO:
         """Get authenticated user profile."""
-        user_id_str: str | None = getattr(request.app.state, 'user_id', None)
-        if not user_id_str:
-            raise NotAuthorizedException(detail='Authentication required')
 
-        user_id = UUID(user_id_str)
-        return await get_me_interactor(user_id)
+        return await get_me_interactor(request.user.user_id)
 
     @patch(
         '/me',
@@ -110,17 +107,12 @@ class UserController(Controller):
     @inject
     async def update_profile(
         self,
-        request: Request[object, object, State],
+        request: Request[UserSecuritySchema, Token, State],
         data: UpdateProfileInputDTO,
         update_profile_interactor: Annotated[UpdateProfileInteractor, Depends()],
     ) -> UpdateProfileOutputDTO:
         """Update authenticated user profile."""
-        user_id_str: str | None = getattr(request.app.state, 'user_id', None)
-        if not user_id_str:
-            raise NotAuthorizedException(detail='Authentication required')
-
-        user_id = UUID(user_id_str)
-        return await update_profile_interactor((user_id, data))
+        return await update_profile_interactor((request.user.user_id, data))
 
     @delete(
         '/me',
@@ -131,13 +123,8 @@ class UserController(Controller):
     @inject
     async def delete_me(
         self,
-        request: Request[object, object, State],
+        request: Request[UserSecuritySchema, Token, State],
         delete_me_interactor: Annotated[DeleteMeInteractor, Depends()],
     ) -> None:
         """Delete authenticated user account."""
-        user_id_str: str | None = getattr(request.app.state, 'user_id', None)
-        if not user_id_str:
-            raise NotAuthorizedException(detail='Authentication required')
-
-        user_id = UUID(user_id_str)
-        await delete_me_interactor(user_id)
+        await delete_me_interactor(request.user.user_id)

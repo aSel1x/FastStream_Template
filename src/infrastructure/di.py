@@ -13,12 +13,13 @@ from spritze import Container, ContextField, Scope, provider
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
+    async_sessionmaker,
     create_async_engine,
 )
 
 from infrastructure.crypt import Crypt
 from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
-from infrastructure.db.sqlalchemy.main import SessionFactory
+from infrastructure.db.sqlalchemy.main import build_sa_session_factory
 from infrastructure.db.sqlalchemy.repositories.user import SQLAlchemyUserRepo
 from infrastructure.db.sqlalchemy.uow import SQLAlchemyUoW
 from infrastructure.jwt import JWTConfig, JWTService
@@ -54,11 +55,11 @@ class AppContainer(Container):
             pool_size=50,
         )
 
-    session_factory: object = provider(SessionFactory, scope=Scope.APP)
+    session_factory: object = provider(build_sa_session_factory, scope=Scope.APP)
 
     @provider(scope=Scope.REQUEST)
     async def db_session(
-        self, session_factory: SessionFactory
+        self, session_factory: async_sessionmaker[AsyncSession]
     ) -> AsyncGenerator[AsyncSession, None]:
         async with session_factory() as session:
             yield session
