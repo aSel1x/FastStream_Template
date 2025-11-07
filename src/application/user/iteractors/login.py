@@ -71,7 +71,7 @@ class LoginInteractor(InteractorInterface[LoginInputDTO, LoginOutputDTO]):
 
         logger.info(f'User {user.uuid} logged in successfully')
 
-        user_payload = {'user_id': str(user.uuid.to_raw())}
+        user_payload = {'sub': str(user.uuid.to_raw())}
 
         access_token = await self._jwt_service.generate(
             user_payload, ACCESS_TOKEN_EXPIRE_SECONDS
