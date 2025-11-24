@@ -2,8 +2,8 @@ import re
 from dataclasses import dataclass
 from typing import override
 
-from domain.common.exception import BaseDomainError
-from domain.common.value_object import BaseValueObject
+from domain.common.exceptions import BaseDomainError
+from domain.common.value_object import ValueObject
 
 # pyright: reportUnsafeMultipleInheritance=false
 
@@ -38,7 +38,7 @@ class WrongUsernameFormatError(WrongUsernameValueError):
 
 
 @dataclass(frozen=True)
-class Username(BaseValueObject[str]):
+class Username(ValueObject[str]):
     value: str
 
     @override

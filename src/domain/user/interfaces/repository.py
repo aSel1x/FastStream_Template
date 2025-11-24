@@ -1,8 +1,7 @@
 from typing import Protocol
 
-from domain.common.entity import EntityUUID
 from domain.user.entities import User
-from domain.user.value_objects import Email, Username
+from domain.user.value_objects import Email, UserID, Username
 
 
 class UserRepositoryInterface(Protocol):
@@ -10,7 +9,7 @@ class UserRepositoryInterface(Protocol):
     User repository interface.
     """
 
-    async def acquire_by_uuid(self, user_id: EntityUUID) -> User | None:
+    async def acquire_by_id(self, user_id: UserID) -> User | None:
         """
         Acquire a user by ID.
         """

@@ -7,3 +7,11 @@ class JWTInterface(Protocol):
 
     async def extract(self, token: str) -> dict[str, str]:
         raise NotImplementedError
+
+    @property
+    def access_token_exp(self) -> int:
+        raise NotImplementedError
+
+    @property
+    def refresh_token_exp(self) -> int:
+        raise NotImplementedError

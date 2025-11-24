@@ -1,11 +1,18 @@
 from dataclasses import dataclass, field
 
-from domain.common.entity import AuditMixin, BaseEntity, UUIDMixin
-from domain.user.value_objects import DeletionTime, Email, HashedPassword, Username
+from domain.common.entity import BaseEntity
+from domain.user.value_objects import (
+    DeletionTime,
+    Email,
+    HashedPassword,
+    UserID,
+    Username,
+)
 
 
 @dataclass
-class User(BaseEntity, UUIDMixin, AuditMixin):
+class User(BaseEntity):
+    id: UserID
     username: Username
     email: Email
     hashed_password: HashedPassword

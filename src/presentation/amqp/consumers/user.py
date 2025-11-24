@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from faststream.annotations import Logger
 from faststream.rabbit import ExchangeType, RabbitExchange, RabbitQueue, RabbitRouter
 
-from presentation.queue.schemas import (
+from presentation.amqp.schemas.user import (
     UserAuthenticatedEventSchema,
     UserCreatedEventSchema,
     UserDeletedEventSchema,

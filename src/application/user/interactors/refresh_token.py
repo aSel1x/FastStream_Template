@@ -11,10 +11,6 @@ from application.common.interfaces import InteractorInterface
 logger = logging.getLogger(__name__)
 
 
-ACCESS_TOKEN_EXPIRE_SECONDS = 60 * 15  # 15 minutes
-REFRESH_TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 7  # 7 days
-
-
 @dataclass
 class RefreshTokenInputDTO(BaseDTO):
     refresh_token: str
@@ -31,10 +27,11 @@ class RefreshTokenOutputDTO(BaseDTO):
 class RefreshTokenInteractor(
     InteractorInterface[RefreshTokenInputDTO, RefreshTokenOutputDTO]
 ):
-    _jwt_service: JWTInterface
-
-    def __init__(self, jwt_service: JWTInterface) -> None:
-        self._jwt_service = jwt_service
+    def __init__(
+        self,
+        jwt_service: JWTInterface,
+    ) -> None:
+        self._jwt_service: JWTInterface = jwt_service
 
     @override
     async def __call__(self, dto: RefreshTokenInputDTO) -> RefreshTokenOutputDTO:
@@ -44,7 +41,7 @@ class RefreshTokenInteractor(
             logger.warning('Invalid or expired refresh token')
             raise
 
-        user_id = payload.get('user_id')
+        user_id = payload.get('sub')
         if not user_id:
             logger.warning('Refresh token missing user_id')
             raise InvalidTokenError()
@@ -54,15 +51,15 @@ class RefreshTokenInteractor(
         user_payload = {'user_id': user_id}
 
         access_token = await self._jwt_service.generate(
-            user_payload, ACCESS_TOKEN_EXPIRE_SECONDS
+            user_payload, self._jwt_service.access_token_exp
         )
         refresh_token = await self._jwt_service.generate(
-            user_payload, REFRESH_TOKEN_EXPIRE_SECONDS
+            user_payload, self._jwt_service.refresh_token_exp
         )
 
         return RefreshTokenOutputDTO(
             access_token=access_token,
             token_type='Bearer',
-            expires_in=ACCESS_TOKEN_EXPIRE_SECONDS,
+            expires_in=self._jwt_service.access_token_exp,
             refresh_token=refresh_token,
         )

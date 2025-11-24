@@ -1,18 +1,23 @@
 from typing import Annotated
+from uuid import UUID
 
-from application.user.iteractors.create_user import (
+from application.user.interactors.create_user import (
     CreateUserInputDTO,
     CreateUserInteractor,
 )
-from application.user.iteractors.delete_me import DeleteMeInteractor
-from application.user.iteractors.get_me import GetMeInteractor, GetMeOutputDTO
-from application.user.iteractors.login import LoginInputDTO, LoginInteractor
-from application.user.iteractors.refresh_token import (
+from application.user.interactors.delete_me import DeleteMeInteractor
+from application.user.interactors.get_me import GetMeInteractor, GetMeOutputDTO
+from application.user.interactors.login import (
+    LoginInputDTO,
+    LoginInteractor,
+    LoginOutputDTO,
+)
+from application.user.interactors.refresh_token import (
     RefreshTokenInputDTO,
     RefreshTokenInteractor,
     RefreshTokenOutputDTO,
 )
-from application.user.iteractors.update_profile import (
+from application.user.interactors.update_profile import (
     UpdateProfileInputDTO,
     UpdateProfileInteractor,
     UpdateProfileOutputDTO,
@@ -23,7 +28,8 @@ from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
 from spritze import Depends, inject
 
-from presentation.api.security import UserSecuritySchema
+from presentation.http.schemas.user import UserProfileUpdatedRequestSchema
+from presentation.http.security import UserSecuritySchema
 
 
 class UserController(Controller):
@@ -39,11 +45,10 @@ class UserController(Controller):
     async def register(
         self,
         data: CreateUserInputDTO,
-        create_user_interactor: Annotated[CreateUserInteractor, Depends()],
-    ) -> dict[str, str]:
+        interactor: Annotated[CreateUserInteractor, Depends()],
+    ) -> UUID:
         """Create a new user account."""
-        user_id = await create_user_interactor(data)
-        return {'user_id': str(user_id)}
+        return await interactor(data)
 
     @post(
         '/login',
@@ -55,17 +60,10 @@ class UserController(Controller):
     async def login(
         self,
         data: LoginInputDTO,
-        login_interactor: Annotated[LoginInteractor, Depends()],
-    ) -> dict[str, str | int]:
+        interactor: Annotated[LoginInteractor, Depends()],
+    ) -> LoginOutputDTO:
         """Authenticate user and return tokens."""
-        result = await login_interactor(data)
-        return {
-            'user_id': result.user_id,
-            'access_token': result.access_token,
-            'token_type': result.token_type,
-            'expires_in': result.expires_in,
-            'refresh_token': result.refresh_token,
-        }
+        return await interactor(data)
 
     @post(
         '/refresh',
@@ -77,10 +75,10 @@ class UserController(Controller):
     async def refresh_token(
         self,
         data: RefreshTokenInputDTO,
-        refresh_token_interactor: Annotated[RefreshTokenInteractor, Depends()],
+        interactor: Annotated[RefreshTokenInteractor, Depends()],
     ) -> RefreshTokenOutputDTO:
         """Refresh access token using refresh token."""
-        return await refresh_token_interactor(data)
+        return await interactor(data)
 
     @get(
         '/me',
@@ -92,11 +90,11 @@ class UserController(Controller):
     async def get_me(
         self,
         request: Request[UserSecuritySchema, Token, State],
-        get_me_interactor: Annotated[GetMeInteractor, Depends()],
+        interactor: Annotated[GetMeInteractor, Depends()],
     ) -> GetMeOutputDTO:
         """Get authenticated user profile."""
 
-        return await get_me_interactor(request.user.user_id)
+        return await interactor(request.user.user_id)
 
     @patch(
         '/me',
@@ -108,11 +106,17 @@ class UserController(Controller):
     async def update_profile(
         self,
         request: Request[UserSecuritySchema, Token, State],
-        data: UpdateProfileInputDTO,
-        update_profile_interactor: Annotated[UpdateProfileInteractor, Depends()],
+        data: UserProfileUpdatedRequestSchema,
+        interactor: Annotated[UpdateProfileInteractor, Depends()],
     ) -> UpdateProfileOutputDTO:
         """Update authenticated user profile."""
-        return await update_profile_interactor((request.user.user_id, data))
+        return await interactor(
+            UpdateProfileInputDTO(
+                user_id=request.user.user_id,
+                username=data.username,
+                email=data.email,
+            )
+        )
 
     @delete(
         '/me',
@@ -124,7 +128,7 @@ class UserController(Controller):
     async def delete_me(
         self,
         request: Request[UserSecuritySchema, Token, State],
-        delete_me_interactor: Annotated[DeleteMeInteractor, Depends()],
+        interactor: Annotated[DeleteMeInteractor, Depends()],
     ) -> None:
         """Delete authenticated user account."""
-        await delete_me_interactor(request.user.user_id)
+        return await interactor(request.user.user_id)

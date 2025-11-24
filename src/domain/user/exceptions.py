@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import override
 from uuid import UUID
 
-from domain.common.exception import BaseDomainError
+from domain.common.exceptions import BaseDomainError
 
 # pyright: reportUnsafeMultipleInheritance=false
 

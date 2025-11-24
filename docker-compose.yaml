@@ -52,7 +52,7 @@ services:
         condition: service_healthy
       postgres_migration:
         condition: service_completed_successfully
-    command: sh -c "pip install uvicorn && python -m uvicorn presentation.api:get_litestar --factory --reload --host 0.0.0.0 --port 8000"
+    command: sh -c "pip install uvicorn && python -m uvicorn presentation.http.app:get_litestar --factory --reload --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     volumes:
@@ -69,7 +69,7 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-    command: ["faststream", "run", "presentation.queue.app:app", "--workers", "1"]
+    command: ["faststream", "run", "presentation.amqp.app:app", "--workers", "1"]
     volumes:
       - "./src:/src"
     networks:

@@ -1,19 +1,20 @@
 import logging
 from dataclasses import dataclass
 from typing import override
+from uuid import UUID
 
 from domain.user.interfaces import JWTInterface
 from domain.user.service import UserService
 from domain.user.value_objects import PlainPassword
 
 from application.common.dto import BaseDTO
-from application.common.interfaces import InteractorInterface, UnitOfWorkInterface
+from application.common.interfaces import (
+    EventPublisherInterface,
+    InteractorInterface,
+    UnitOfWorkInterface,
+)
 
 logger = logging.getLogger(__name__)
-
-
-ACCESS_TOKEN_EXPIRE_SECONDS = 60 * 15  # 15 minutes
-REFRESH_TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
 
 @dataclass
@@ -35,7 +36,7 @@ class TokenInfoDTO(BaseDTO):
 
 @dataclass
 class LoginOutputDTO(BaseDTO):
-    user_id: str
+    user_id: UUID
     access_token: str
     token_type: str
     expires_in: int
@@ -43,19 +44,17 @@ class LoginOutputDTO(BaseDTO):
 
 
 class LoginInteractor(InteractorInterface[LoginInputDTO, LoginOutputDTO]):
-    _uow: UnitOfWorkInterface
-    _user_service: UserService
-    _jwt_service: JWTInterface
-
     def __init__(
         self,
         uow: UnitOfWorkInterface,
         user_service: UserService,
         jwt_service: JWTInterface,
+        event_publisher: EventPublisherInterface,
     ) -> None:
-        self._uow = uow
-        self._user_service = user_service
-        self._jwt_service = jwt_service
+        self._uow: UnitOfWorkInterface = uow
+        self._user_service: UserService = user_service
+        self._jwt_service: JWTInterface = jwt_service
+        self._event_publisher: EventPublisherInterface = event_publisher
 
     @override
     async def __call__(self, dto: LoginInputDTO) -> LoginOutputDTO:
@@ -69,21 +68,23 @@ class LoginInteractor(InteractorInterface[LoginInputDTO, LoginOutputDTO]):
 
         await self._uow.commit()
 
-        logger.info(f'User {user.uuid} logged in successfully')
+        logger.info(f'User {user.id.to_raw()} logged in successfully')
 
-        user_payload = {'sub': str(user.uuid.to_raw())}
+        user_payload = {'sub': str(user.id.to_raw())}
 
         access_token = await self._jwt_service.generate(
-            user_payload, ACCESS_TOKEN_EXPIRE_SECONDS
+            user_payload, self._jwt_service.access_token_exp
         )
         refresh_token = await self._jwt_service.generate(
-            user_payload, REFRESH_TOKEN_EXPIRE_SECONDS
+            user_payload, self._jwt_service.refresh_token_exp
         )
 
+        await self._event_publisher.publish(self._user_service.pull_events())
+
         return LoginOutputDTO(
-            user_id=str(user.uuid.to_raw()),
+            user_id=user.id.to_raw(),
             access_token=access_token,
             token_type='Bearer',
-            expires_in=ACCESS_TOKEN_EXPIRE_SECONDS,
+            expires_in=self._jwt_service.access_token_exp,
             refresh_token=refresh_token,
         )

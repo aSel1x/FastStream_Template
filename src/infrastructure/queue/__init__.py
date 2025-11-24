@@ -1,5 +1,4 @@
-from infrastructure.queue.broker import create_broker
-from infrastructure.queue.config import RabbitMQConfig
-from infrastructure.queue.publisher import EventPublisher
+from .config import RabbitMQConfig
+from .event_publisher import EventPublisherAMQP
 
-__all__ = ('RabbitMQConfig', 'EventPublisher', 'create_broker')
+__all__ = ('EventPublisherAMQP', 'RabbitMQConfig')

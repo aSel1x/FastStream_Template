@@ -19,7 +19,7 @@ dependencies = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "python-dotenv>=1.1.1",
-    "spritze==0.3.6",
+    "spritze==0.3.9",
     "sqlalchemy>=2.0.44",
     "types-pyjwt>=1.7.1",
 ]

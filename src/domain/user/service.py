@@ -1,4 +1,3 @@
-from domain.common.entity import EntityUUID
 from domain.common.service import BaseService
 from domain.user.entities import User
 from domain.user.events import (
@@ -21,13 +20,16 @@ from domain.user.value_objects import (
     Email,
     HashedPassword,
     PlainPassword,
+    UserID,
     Username,
 )
 
 
 class UserService(BaseService):
     def __init__(
-        self, user_repo: UserRepositoryInterface, crypt: CryptInterface
+        self,
+        user_repo: UserRepositoryInterface,
+        crypt: CryptInterface,
     ) -> None:
         super().__init__()
         self._user_repo: UserRepositoryInterface = user_repo
@@ -35,9 +37,10 @@ class UserService(BaseService):
 
     async def create(
         self,
+        user_id: UserID,
         username: Username,
+        password: PlainPassword,
         email: Email | None = None,
-        password: PlainPassword | None = None,
     ) -> User:
         username_exists = await self._user_repo.check_username_exists(username)
         if username_exists:
@@ -48,13 +51,11 @@ class UserService(BaseService):
             if email_exists:
                 raise EmailAlreadyExistsError(email.to_raw())
 
-        if password is None:
-            raise ValueError('Password is required')
-
         hashed_password = await self._crypt.hash(password.to_raw())
         hashed_password_vo = HashedPassword(hashed_password)
 
         user = User(
+            id=user_id,
             username=username,
             email=email or Email(None),
             hashed_password=hashed_password_vo,
@@ -62,7 +63,7 @@ class UserService(BaseService):
         await self._user_repo.add(user)
         self._record_event(
             UserCreatedEvent(
-                user_id=user.uuid.to_raw(),
+                user_id=user.id.to_raw(),
                 username=user.username.to_raw(),
                 email=user.email.to_raw() if user.email.to_raw() else None,
             )
@@ -99,15 +100,15 @@ class UserService(BaseService):
 
         self._record_event(
             UserAuthenticatedEvent(
-                user_id=user.uuid.to_raw(),
+                user_id=user.id.to_raw(),
                 username=user.username.to_raw(),
             )
         )
 
         return user
 
-    async def delete_user(self, user_id: EntityUUID) -> None:
-        user = await self._user_repo.acquire_by_uuid(user_id)
+    async def delete_user(self, user_id: UserID) -> None:
+        user = await self._user_repo.acquire_by_id(user_id)
         if user is None:
             raise UserIdNotExistError(user_id.to_raw())
         self._validate_user_not_deleted(user)
@@ -116,8 +117,8 @@ class UserService(BaseService):
         await self._user_repo.update(user)
         self._record_event(UserDeletedEvent(user_id=user_id.to_raw()))
 
-    async def get_user_by_uuid(self, user_id: EntityUUID) -> User:
-        user = await self._user_repo.acquire_by_uuid(user_id)
+    async def get_user_by_id(self, user_id: UserID) -> User:
+        user = await self._user_repo.acquire_by_id(user_id)
         if user is None:
             raise UserNotFoundError()
         self._validate_user_not_deleted(user)
@@ -151,7 +152,7 @@ class UserService(BaseService):
         if updated_fields:
             self._record_event(
                 UserProfileUpdatedEvent(
-                    user_id=user.uuid.to_raw(),
+                    user_id=user.id.to_raw(),
                     updated_fields=tuple(updated_fields),
                 )
             )
@@ -160,4 +161,4 @@ class UserService(BaseService):
 
     def _validate_user_not_deleted(self, user: User) -> None:
         if user.deleted_at.is_deleted():
-            raise UserIsDeletedError(user.uuid.to_raw())
+            raise UserIsDeletedError(user.id.to_raw())

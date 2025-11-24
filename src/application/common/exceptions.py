@@ -1,6 +1,6 @@
 from typing import override
 
-from domain.common.exception import BaseAppError
+from domain.common.exceptions import BaseAppError
 
 
 class BaseApplicationError(BaseAppError):

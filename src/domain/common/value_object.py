@@ -4,7 +4,7 @@ from typing import Any, Generic, TypeVar
 
 
 @dataclass(frozen=True)
-class ValueObjectInterface(ABC):
+class BaseValueObject(ABC):
     def __post_init__(self) -> None:
         self._validate()
 
@@ -17,7 +17,7 @@ V = TypeVar('V', bound=Any)  # pyright: ignore[reportExplicitAny]
 
 
 @dataclass(frozen=True)
-class BaseValueObject(ValueObjectInterface, ABC, Generic[V]):
+class ValueObject(BaseValueObject, ABC, Generic[V]):
     value: V
 
     def to_raw(self) -> V:
