@@ -1,16 +1,18 @@
-from domain.common.exception import BaseAppError
+from domain.common.exceptions import BaseAppError, BaseDomainError
 from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
 from infrastructure.di import AppContainer
 from infrastructure.jwt import JWTConfig
-from infrastructure.mediator import EventBus, register_event_handlers
 from infrastructure.queue import RabbitMQConfig
 from litestar import Litestar
 from litestar.openapi.config import OpenAPIConfig
-from spritze import init, resolve
+from spritze import init
 
-from presentation.api.controllers.user import UserController
-from presentation.api.exception_handlers import app_exception_handler
-from presentation.api.security import create_jwt_auth
+from presentation.http.controllers.user import UserController
+from presentation.http.exception_handlers import (
+    app_exception_handler,
+    domain_exception_handler,
+)
+from presentation.http.security import create_jwt_auth
 
 
 def get_litestar() -> Litestar:
@@ -19,16 +21,13 @@ def get_litestar() -> Litestar:
     sqlalchemy_config = SQLAlchemyConfig.from_environ()
 
     init(
-        AppContainer(),
+        AppContainer,
         context={
             JWTConfig: jwt_config,
             RabbitMQConfig: rabbitmq_config,
             SQLAlchemyConfig: sqlalchemy_config,
         },
     )
-
-    event_bus = resolve(EventBus)
-    register_event_handlers(event_bus)
 
     jwt_auth = create_jwt_auth(token_secret=jwt_config.secret_key)
 
@@ -41,6 +40,7 @@ def get_litestar() -> Litestar:
         route_handlers=[UserController],
         exception_handlers={
             BaseAppError: app_exception_handler,
+            BaseDomainError: domain_exception_handler,
         },
         on_app_init=[jwt_auth.on_app_init],
         debug=True,

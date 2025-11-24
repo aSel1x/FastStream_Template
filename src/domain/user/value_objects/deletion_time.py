@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from typing import Self, override
 
-from domain.common.value_object import BaseValueObject
+from domain.common.value_object import ValueObject
 
 
-class DeletionTime(BaseValueObject[datetime | None]):
+class DeletionTime(ValueObject[datetime | None]):
     value: datetime | None
 
     @override

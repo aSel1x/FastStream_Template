@@ -279,7 +279,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
-    { name = "spritze", specifier = "==0.3.6" },
+    { name = "spritze", specifier = "==0.3.9" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
     { name = "types-pyjwt", specifier = ">=1.7.1" },
 ]
@@ -948,11 +948,11 @@ wheels = [
 
 [[package]]
 name = "spritze"
-version = "0.3.6"
+version = "0.3.9"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/25/37/414427f5b19b796ec3b3662a0a363a69e2809077ea7db5cba95f2741e9ea/spritze-0.3.6.tar.gz", hash = "sha256:d3a05e5d4b30dd611edc247ef7dd9fbdfd37dfc71d37472c9a6c218c3ea8dfb7", size = 26125, upload-time = "2025-11-07T13:31:17.524Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/c7/d50217048c46e4edafeca22f9e590e7caf93a8e894ab99248eb3e2e0e217/spritze-0.3.9.tar.gz", hash = "sha256:3d9834240a1afd30333375d5767bcc2052a7bd4d5f24b7621d3b88e06502d70f", size = 29322, upload-time = "2025-11-17T14:55:39.025Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/4a/f7861b521e297dfcffcc70152412760b1a7f5c32c6fece1c2be883b63f17/spritze-0.3.6-py3-none-any.whl", hash = "sha256:f100fabfc8f3b29f187ab78b8a1172c96754fd1f551ad6d9015d34490213c199", size = 23891, upload-time = "2025-11-07T13:31:16.302Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/ea/a3e3368ddcda3dcaf89661fe2d9bb29a810f5380b527c6060f191ff9777d/spritze-0.3.9-py3-none-any.whl", hash = "sha256:b2e90e3ce0ce027c811e7848e6ad1353eb105d3c65293ba3a736f969e6380465", size = 24805, upload-time = "2025-11-17T14:55:37.934Z" },
 ]
 
 [[package]]

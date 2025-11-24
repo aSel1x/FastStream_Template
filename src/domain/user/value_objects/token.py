@@ -1,10 +1,12 @@
+# pyright: reportUnsafeMultipleInheritance = false
+
 import datetime as dt
 from dataclasses import dataclass
 from enum import Enum
 from typing import override
 
-from domain.common.exception import BaseDomainError
-from domain.common.value_object import BaseValueObject
+from domain.common.exceptions import BaseDomainError
+from domain.common.value_object import ValueObject
 
 
 class TokenType(Enum):
@@ -13,7 +15,7 @@ class TokenType(Enum):
 
 
 @dataclass(eq=False)
-class WrongTokenValueError(BaseDomainError):
+class WrongTokenValueError(ValueError, BaseDomainError):
     token: str
 
     @property
@@ -30,7 +32,7 @@ class EmptyTokenError(WrongTokenValueError):
 
 
 @dataclass(frozen=True)
-class Token(BaseValueObject[str]):
+class Token(ValueObject[str]):
     value: str
 
     @override
@@ -40,7 +42,7 @@ class Token(BaseValueObject[str]):
 
 
 @dataclass(frozen=True)
-class ExpiresAt(BaseValueObject[dt.datetime]):
+class ExpiresAt(ValueObject[dt.datetime]):
     value: dt.datetime
 
     @override
@@ -53,7 +55,7 @@ class ExpiresAt(BaseValueObject[dt.datetime]):
 
 
 @dataclass(frozen=True)
-class TokenResponse(BaseValueObject[dict[str, object]]):
+class TokenResponse(ValueObject[dict[str, object]]):
     access_token: Token
     refresh_token: Token
     access_token_expires_at: ExpiresAt

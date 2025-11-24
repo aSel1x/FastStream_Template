@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 import json
 import logging
+from collections.abc import Iterable
+from typing import override
 
 import aio_pika
 from aio_pika.abc import AbstractChannel, AbstractConnection
-from aio_pika.pool import Pool
+from application.common.interfaces.event_bus import EventPublisherInterface
 from domain.common.event import BaseEvent
 
 from infrastructure.queue.config import RabbitMQConfig
@@ -13,17 +13,14 @@ from infrastructure.queue.config import RabbitMQConfig
 logger = logging.getLogger(__name__)
 
 
-class EventPublisher:
-    """Publishes domain events to RabbitMQ using aio-pika."""
+class EventPublisherAMQP(EventPublisherInterface):
+    """Event publisher for publishing domain events to RabbitMQ."""
 
     _config: RabbitMQConfig
-    _connection_pool: Pool[AbstractConnection] | None
-    _channel_pool: Pool[AbstractChannel] | None
 
     def __init__(self, config: RabbitMQConfig) -> None:
+        """Initialize event publisher with RabbitMQ configuration."""
         self._config = config
-        self._connection_pool = None
-        self._channel_pool = None
 
     async def _get_connection(self) -> AbstractConnection:
         return await aio_pika.connect_robust(self._config.url)
@@ -42,13 +39,9 @@ class EventPublisher:
             return None
         return str(value)
 
-    async def publish(self, event: BaseEvent) -> None:
-        await self.publish_many([event])
-
-    async def publish_many(self, events: list[BaseEvent]) -> None:
-        if not events:
-            return
-
+    @override
+    async def publish(self, events: Iterable[BaseEvent]) -> None:
+        """Publish event to RabbitMQ."""
         channel: AbstractChannel | None = None
         try:
             channel = await self._get_channel()
@@ -83,7 +76,7 @@ class EventPublisher:
                     routing_key=routing_key,
                 )
         except Exception as e:
-            logger.warning('Failed to publish events batch: %s', str(e))
+            logger.warning('Failed to publish event to RabbitMQ: %s', str(e))
         finally:
             if channel is not None:
                 await channel.close()

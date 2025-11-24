@@ -1,9 +1,8 @@
 from typing import override
 
-from domain.common.entity import EntityUUID
 from domain.user import entities
 from domain.user.interfaces import UserRepositoryInterface
-from domain.user.value_objects import Email, Username
+from domain.user.value_objects import Email, UserID, Username
 from infrastructure.db.sqlalchemy.models.user import USERS_TABLE
 from infrastructure.db.sqlalchemy.repositories.base import SQLAlchemyRepo
 
@@ -16,7 +15,7 @@ class SQLAlchemyUserRepo(SQLAlchemyRepo, UserRepositoryInterface):
         super().__init__(session)
 
     @override
-    async def acquire_by_uuid(self, user_id: EntityUUID) -> entities.User | None:
+    async def acquire_by_id(self, user_id: UserID) -> entities.User | None:
         user: entities.User | None = await self._session.get(
             entities.User, user_id.to_raw()
         )

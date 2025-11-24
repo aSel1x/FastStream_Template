@@ -1,9 +1,11 @@
+# pyright: reportUnsafeMultipleInheritance = false
+
 import re
 from dataclasses import dataclass
 from typing import override
 
-from domain.common.exception import BaseDomainError
-from domain.common.value_object import BaseValueObject
+from domain.common.exceptions import BaseDomainError
+from domain.common.value_object import ValueObject
 
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
@@ -13,7 +15,7 @@ PASSWORD_PATTERN = re.compile(
 
 
 @dataclass(eq=False)
-class WrongPasswordValueError(BaseDomainError):
+class WrongPasswordValueError(ValueError, BaseDomainError):
     password: str
 
     @property
@@ -54,7 +56,7 @@ class PasswordTooWeakError(WrongPasswordValueError):
 
 
 @dataclass(frozen=True)
-class PlainPassword(BaseValueObject[str]):
+class PlainPassword(ValueObject[str]):
     value: str
 
     @override
@@ -70,7 +72,7 @@ class PlainPassword(BaseValueObject[str]):
 
 
 @dataclass(frozen=True)
-class HashedPassword(BaseValueObject[bytes]):
+class HashedPassword(ValueObject[bytes]):
     value: bytes
 
     @override

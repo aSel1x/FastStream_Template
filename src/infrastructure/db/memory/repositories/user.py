@@ -1,19 +1,18 @@
 from typing import override
 
-from domain.common.entity import EntityUUID
 from domain.user import entities
 from domain.user.interfaces import UserRepositoryInterface
-from domain.user.value_objects import Email, Username
+from domain.user.value_objects import Email, UserID, Username
 from infrastructure.utils import singleton
 
 
 @singleton
 class InMemoryUserRepo(UserRepositoryInterface):
     def __init__(self) -> None:
-        self._users: dict[EntityUUID, entities.User] = {}
+        self._users: dict[UserID, entities.User] = {}
 
     @override
-    async def acquire_by_uuid(self, user_id: EntityUUID) -> entities.User | None:
+    async def acquire_by_id(self, user_id: UserID) -> entities.User | None:
         return self._users.get(user_id)
 
     @override
@@ -34,11 +33,11 @@ class InMemoryUserRepo(UserRepositoryInterface):
 
     @override
     async def add(self, user: entities.User) -> None:
-        self._users[user.uuid] = user
+        self._users[user.id] = user
 
     @override
     async def update(self, user: entities.User) -> None:
-        self._users[user.uuid] = user
+        self._users[user.id] = user
 
     @override
     async def check_username_exists(self, username: Username) -> bool:

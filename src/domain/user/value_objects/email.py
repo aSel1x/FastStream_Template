@@ -1,15 +1,17 @@
+# pyright: reportUnsafeMultipleInheritance = false
+
 import re
 from dataclasses import dataclass
 from typing import override
 
-from domain.common.exception import BaseDomainError
-from domain.common.value_object import BaseValueObject
+from domain.common.exceptions import BaseDomainError
+from domain.common.value_object import ValueObject
 
 EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
 
 @dataclass(eq=False)
-class WrongEmailValueError(BaseDomainError):
+class WrongEmailValueError(ValueError, BaseDomainError):
     email: str
 
     @property
@@ -33,7 +35,7 @@ class InvalidEmailFormatError(WrongEmailValueError):
 
 
 @dataclass(frozen=True)
-class Email(BaseValueObject[str | None]):
+class Email(ValueObject[str | None]):
     value: str | None
 
     @override

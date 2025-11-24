@@ -1,22 +1,17 @@
 import abc
-import datetime as dt
 from dataclasses import dataclass
-from typing import Any, override
-from uuid import UUID
+from typing import Any
 
-from domain.common.entity import BaseEntity, CreatedAt, EntityUUID, UpdatedAt
-from domain.common.value_object import BaseValueObject
+from domain.common.entity import BaseEntity
+from domain.common.value_object import ValueObject
 
 from sqlalchemy import Column, MetaData, Table
-from sqlalchemy import types as sa_types
 from sqlalchemy.orm import (
     Composite,
     DeclarativeBase,
     Mapper,
-    composite,
     registry,
 )
-from sqlalchemy.sql import func
 
 convention = {
     'ix': 'ix_%(column_0_label)s',  # INDEX
@@ -29,7 +24,7 @@ convention = {
 
 mapper_registry = registry(metadata=MetaData(naming_convention=convention))
 
-CT = BaseValueObject[Any]  # pyright: ignore[reportExplicitAny]
+CT = ValueObject[Any]  # pyright: ignore[reportExplicitAny]
 AnyCol = Column[Any]  # pyright: ignore[reportExplicitAny]
 
 
@@ -49,53 +44,6 @@ class ImperativeMixin(abc.ABC):
     @abc.abstractmethod
     def vo_map(cls, table: Table) -> dict[str, Composite[CT]]:
         raise NotImplementedError
-
-
-class UUIDMixin(ImperativeMixin):
-    @classmethod
-    @override
-    def columns(cls) -> list[Column[UUID]]:
-        return [
-            Column(
-                'uuid',
-                sa_types.UUID(as_uuid=True),
-                primary_key=True,
-                unique=True,
-                nullable=False,
-            )
-        ]
-
-    @classmethod
-    @override
-    def vo_map(cls, table: Table) -> dict[str, Composite[CT]]:
-        return {'uuid': composite(EntityUUID, table.c.uuid)}
-
-
-class AuditMixin(ImperativeMixin):
-    @classmethod
-    @override
-    def columns(cls) -> list[Column[dt.datetime]]:
-        return [
-            Column(
-                'created_at',
-                sa_types.DateTime(timezone=True),
-                server_default=func.now(),
-            ),
-            Column(
-                'updated_at',
-                sa_types.DateTime(timezone=True),
-                server_default=func.now(),
-                onupdate=func.now(),
-            ),
-        ]
-
-    @classmethod
-    @override
-    def vo_map(cls, table: Table) -> dict[str, Composite[CT]]:
-        return {
-            'created_at': composite(CreatedAt, table.c.created_at),
-            'updated_at': composite(UpdatedAt, table.c.updated_at),
-        }
 
 
 def create_table(

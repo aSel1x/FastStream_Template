@@ -1,10 +1,10 @@
 import logging
 
 from faststream import FastStream
-from infrastructure.queue.broker import create_broker
+from faststream.rabbit import RabbitBroker
 from infrastructure.queue.config import RabbitMQConfig
 
-from presentation.queue.consumers.user_events import router as user_events_router
+from presentation.amqp.consumers.user import router as user_events_router
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def create_app() -> FastStream:
     config = RabbitMQConfig.from_environ()
 
-    broker = create_broker(config)
+    broker = RabbitBroker(config.url)
 
     broker.include_router(user_events_router)
 
