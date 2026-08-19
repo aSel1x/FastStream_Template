@@ -29,9 +29,9 @@ router = RabbitRouter()
 async def handle_user_created(event: UserCreatedEventSchema, logger: Logger) -> None:
     logger.info(
         'Processing UserCreatedEvent: user_id=%s, username=%s, email=%s',
-        event.data.user_id,
-        event.data.username,
-        event.data.email or 'N/A',
+        event.payload.user_id,
+        event.payload.username,
+        event.payload.email or 'N/A',
     )
 
 
@@ -48,8 +48,8 @@ async def handle_user_authenticated(
 ) -> None:
     logger.info(
         'Processing UserAuthenticatedEvent: user_id=%s, username=%s',
-        event.data.user_id,
-        event.data.username,
+        event.payload.user_id,
+        event.payload.username,
     )
 
 
@@ -66,8 +66,8 @@ async def handle_user_profile_updated(
 ) -> None:
     logger.info(
         'Processing UserProfileUpdatedEvent: user_id=%s, updated_fields=%s',
-        event.data.user_id,
-        event.data.updated_fields,
+        event.payload.user_id,
+        event.payload.updated_fields,
     )
 
 
@@ -80,4 +80,4 @@ async def handle_user_profile_updated(
     exchange=user_events_exchange,
 )
 async def handle_user_deleted(event: UserDeletedEventSchema, logger: Logger) -> None:
-    logger.info('Processing UserDeletedEvent: user_id=%s', event.data.user_id)
+    logger.info('Processing UserDeletedEvent: user_id=%s', event.payload.user_id)

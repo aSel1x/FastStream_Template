@@ -1,11 +1,18 @@
-from .authentication import AuthenticationServiceInterface
-from .crypt import CryptInterface
-from .jwt import JWTInterface
-from .repository import UserRepositoryInterface
+from .acl import CryptInterface, TwoFactorInterface
+from .persistence import (
+    PermissionRepositoryInterface,
+    RoleRepositoryInterface,
+    SessionRepositoryInterface,
+    UserRepositoryInterface,
+    UserRoleRepositoryInterface,
+)
 
 __all__ = (
     'CryptInterface',
-    'JWTInterface',
+    'TwoFactorInterface',
     'UserRepositoryInterface',
-    'AuthenticationServiceInterface',
+    'SessionRepositoryInterface',
+    'PermissionRepositoryInterface',
+    'RoleRepositoryInterface',
+    'UserRoleRepositoryInterface',
 )

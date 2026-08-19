@@ -1,14 +1,18 @@
 from dataclasses import dataclass
-from typing import override
+from typing import ClassVar, override
 from uuid import UUID
 
 from domain.common.exceptions import BaseDomainError
 
-# pyright: reportUnsafeMultipleInheritance=false
+# Plain HTTP status ints (no framework import — domain stays framework-free); the presentation
+# layer's exception handlers read `.status` off these via getattr.
+_HTTP_FORBIDDEN = 403
+_HTTP_NOT_FOUND = 404
+_HTTP_LOCKED = 423
 
 
 @dataclass(eq=False)
-class UserIsDeletedError(RuntimeError, BaseDomainError):
+class UserIsDeletedError(BaseDomainError):
     user_id: UUID
 
     @property
@@ -43,39 +47,99 @@ class EmailAlreadyExistsError(BaseDomainError):
 
 @dataclass(eq=False)
 class InvalidCredentialsError(BaseDomainError):
+    message: str | None = None
+
     @property
     @override
     def detail(self) -> str:
-        return 'Invalid username/email or password'
+        return self.message or 'Invalid username/email or password'
 
 
 @dataclass(eq=False)
 class UserNotFoundError(BaseDomainError):
-    username_or_email: str | None = None
-
-    @property
-    @override
-    def detail(self) -> str:
-        if self.username_or_email is None:
-            return 'User not found'
-        return f'User with "{self.username_or_email}" not found'
-
-
-@dataclass(eq=False)
-class InvalidTokenError(BaseDomainError):
-    @property
-    @override
-    def detail(self) -> str:
-        return 'Invalid or expired token'
-
-
-@dataclass(eq=False)
-class UserIdNotExistError(BaseDomainError):
-    user_id: UUID | None = None
+    status: ClassVar[int] = _HTTP_NOT_FOUND
+    user_id: str | None = None
 
     @property
     @override
     def detail(self) -> str:
         if self.user_id is None:
-            return 'User with provided ID does not exist'
-        return f'User with ID "{self.user_id}" does not exist'
+            return 'User not found'
+        return f'User with "{self.user_id}" not found'
+
+
+@dataclass(eq=False)
+class InvalidTokenError(BaseDomainError):
+    message: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        return self.message or 'Invalid or expired token'
+
+
+@dataclass(eq=False)
+class AccountLockedError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_LOCKED
+    user_id: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        if self.user_id is None:
+            return 'Account is locked'
+        return f'Account with "{self.user_id}" is locked due to too many failed login attempts'
+
+
+@dataclass(eq=False)
+class EmailNotVerifiedError(BaseDomainError):
+    @property
+    @override
+    def detail(self) -> str:
+        return 'Email not verified'
+
+
+@dataclass(eq=False)
+class PasswordResetExpiredError(BaseDomainError):
+    @property
+    @override
+    def detail(self) -> str:
+        return 'Password reset token has expired'
+
+
+@dataclass(eq=False)
+class PermissionDeniedError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_FORBIDDEN
+    permission: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        if self.permission is None:
+            return 'Permission denied'
+        return f'Permission "{self.permission}" denied'
+
+
+@dataclass(eq=False)
+class RoleNotFoundError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_NOT_FOUND
+    role_id: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        if self.role_id is None:
+            return 'Role not found'
+        return f'Role "{self.role_id}" not found'
+
+
+@dataclass(eq=False)
+class RoleAlreadyExistsError(BaseDomainError):
+    role_name: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        if self.role_name is None:
+            return 'Role already exists'
+        return f'Role "{self.role_name}" already exists'

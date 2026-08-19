@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authorize application</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #fff; border-radius: 12px; padding: 40px; width: 480px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    h1 { font-size: 22px; margin-bottom: 8px; color: #1a1a1a; }
+    p { color: #666; margin-bottom: 24px; font-size: 14px; }
+    .client-info { background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+    .client-name { font-weight: 600; font-size: 16px; color: #1a1a1a; }
+    .client-uri { font-size: 13px; color: #4a90d9; margin-top: 4px; }
+    h2 { font-size: 16px; margin-bottom: 12px; color: #333; }
+    .scope-list { list-style: none; margin-bottom: 24px; }
+    .scope-list li { padding: 8px 12px; background: #f0f7ff; border-radius: 6px; margin-bottom: 6px; font-size: 14px; color: #333; }
+    .actions { display: flex; gap: 12px; }
+    .btn-allow { flex: 1; padding: 12px; background: #4a90d9; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; }
+    .btn-allow:hover { background: #357abd; }
+    .btn-deny { flex: 1; padding: 12px; background: #fff; color: #666; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; }
+    .btn-deny:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Authorization required</h1>
+    <p>{{ client_name }} wants to access your account</p>
+    <div class="client-info">
+      <div class="client-name">{{ client_name }}</div>
+      {% if client_uri %}
+      <div class="client-uri">{{ client_uri }}</div>
+      {% endif %}
+    </div>
+    <h2>This will allow:</h2>
+    <ul class="scope-list">
+      {% for scope in scopes %}
+      <li>{{ scope }}</li>
+      {% endfor %}
+    </ul>
+    <div class="actions">
+      <form method="post" action="/auth/consent" style="flex:1">
+        {{ csrf_input | safe }}
+        <input type="hidden" name="consent_challenge" value="{{ consent_challenge }}">
+        <input type="hidden" name="approve" value="true">
+        <button type="submit" class="btn-allow">Allow</button>
+      </form>
+      <form method="post" action="/auth/consent" style="flex:1">
+        {{ csrf_input | safe }}
+        <input type="hidden" name="consent_challenge" value="{{ consent_challenge }}">
+        <input type="hidden" name="approve" value="false">
+        <button type="submit" class="btn-deny">Deny</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

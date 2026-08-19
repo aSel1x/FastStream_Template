@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 
 @dataclass(frozen=True)
@@ -13,7 +13,7 @@ class BaseValueObject(ABC):
         pass
 
 
-V = TypeVar('V', bound=Any)  # pyright: ignore[reportExplicitAny]
+V = TypeVar('V')
 
 
 @dataclass(frozen=True)

@@ -5,14 +5,12 @@ from typing import override
 from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
 
-# pyright: reportUnsafeMultipleInheritance=false
-
 MAX_USERNAME_LENGTH = 32
-USERNAME_PATTERN = re.compile(r'[A-Za-z][A-Za-z1-9_]+')
+USERNAME_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9_]+$')
 
 
 @dataclass(eq=False)
-class WrongUsernameValueError(ValueError, BaseDomainError):
+class WrongUsernameValueError(BaseDomainError):
     username: str
 
 

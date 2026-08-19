@@ -20,6 +20,76 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: app.redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shared
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hydra-postgres:
+    image: postgres:16-alpine
+    container_name: app.hydra_postgres
+    environment:
+      POSTGRES_USER: ${HYDRA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${HYDRA_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${HYDRA_POSTGRES_DB}
+    volumes:
+      - hydra_postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HYDRA_POSTGRES_USER} -d ${HYDRA_POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0
+    container_name: app.hydra_migrate
+    environment:
+      DSN: postgres://${HYDRA_POSTGRES_USER}:${HYDRA_POSTGRES_PASSWORD}@hydra-postgres:5432/${HYDRA_POSTGRES_DB}?sslmode=disable
+    depends_on:
+      hydra-postgres:
+        condition: service_healthy
+    command: ["migrate", "sql", "-e", "--yes"]
+    networks:
+      - shared
+
+  hydra:
+    image: oryd/hydra:v26.2.0
+    container_name: app.hydra
+    environment:
+      DSN: postgres://${HYDRA_POSTGRES_USER}:${HYDRA_POSTGRES_PASSWORD}@hydra-postgres:5432/${HYDRA_POSTGRES_DB}?sslmode=disable
+      URLS_SELF_ISSUER: ${HYDRA_ISSUER_URL}
+      URLS_LOGIN: ${HYDRA_LOGIN_URL}
+      URLS_CONSENT: ${HYDRA_CONSENT_URL}
+      URLS_LOGOUT: ${HYDRA_LOGOUT_URL}
+      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM}
+      SERVE_COOKIES_SAME_SITE_MODE: Lax
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    # --dev relaxes TLS requirements for local plaintext HTTP; drop it behind a real TLS terminator in prod.
+    command: ["serve", "all", "--dev"]
+    ports:
+      - "${HYDRA_PUBLIC_PORT}:4444"
+    networks:
+      - shared
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4444/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: app.rabbitmq
@@ -40,7 +110,9 @@ services:
       retries: 5
 
   api:
-    build: .
+    build:
+      context: .
+      target: dev
     container_name: app.api
     image: app
     env_file:
@@ -50,9 +122,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      hydra:
+        condition: service_healthy
       postgres_migration:
         condition: service_completed_successfully
-    command: sh -c "pip install uvicorn && python -m uvicorn presentation.http.app:get_litestar --factory --reload --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     volumes:
@@ -61,7 +134,9 @@ services:
       - shared
 
   queue:
-    build: .
+    build:
+      context: .
+      target: dev
     container_name: app.queue
     image: app
     env_file:
@@ -76,8 +151,32 @@ services:
       - shared
     restart: unless-stopped
 
+  outbox_worker:
+    build:
+      context: .
+      target: dev
+    container_name: app.outbox_worker
+    image: app
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres_migration:
+        condition: service_completed_successfully
+    command: ["python", "-m", "infrastructure.queue.outbox_worker"]
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
   postgres_migration:
-    build: .
+    build:
+      context: .
+      target: dev
     container_name: app.postgres_migration
     image: app
     env_file:
@@ -88,7 +187,13 @@ services:
     volumes:
       - "./src/infrastructure/db/sqlalchemy/migrations/versions:/src/infrastructure/db/sqlalchemy/migrations/versions"
       - "./alembic.ini:/src/alembic.ini"
-    command: ["alembic", "upgrade", "head"]
+    # alembic.ini's script_location is "src/infrastructure/..." — relative to the repo root, not
+    # the image's /src (which IS the repo's src/ flattened to the filesystem root). Running from
+    # / with PYTHONPATH=/src makes both the relative path and the app imports in env.py resolve.
+    working_dir: /
+    environment:
+      PYTHONPATH: /src
+    command: sh -c "alembic -c /src/alembic.ini upgrade head"
     networks:
       - shared
 
@@ -99,3 +204,5 @@ networks:
 volumes:
   postgres_data:
   rabbitmq_data:
+  redis_data:
+  hydra_postgres_data:

@@ -1,0 +1,40 @@
+{
+    "name": "Backend Template",
+    "image": "mcr.microsoft.com/vscode/devcontainers/base:ubuntu",
+    "features": {
+        "ghcr.io/devcontainer-community/devcontainer-features/astral.sh-uv:1": {
+            "version": "latest"
+        }
+    },
+    "runArgs": [
+        "--network=devu"
+    ],
+    "remoteEnv": {
+        "PYTHONPATH": "${containerWorkspaceFolder}/src",
+        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff",
+                "detachhead.basedpyright"
+            ],
+            "settings": {
+                "python.languageServer": "None",
+                "basedpyright.analysis.typeCheckingMode": "all",
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.fixAll.ruff": "always",
+                    "source.organizeImports.ruff": "always"
+                },
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                },
+                "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python"
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "uv sync --all-extras"
+}

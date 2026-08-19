@@ -1,5 +1,5 @@
-FROM ghcr.io/astral-sh/uv:latest as uv
-FROM python:3.13-slim-bookworm as builder
+FROM ghcr.io/astral-sh/uv:latest AS uv
+FROM python:3.14-slim-bookworm AS builder
 
 COPY --from=uv /uv /uvx /bin/
 COPY uv.lock pyproject.toml ./
@@ -7,7 +7,7 @@ COPY uv.lock pyproject.toml ./
 RUN uv pip compile pyproject.toml -o requirements.prod.txt && \
     uv pip compile --group dev pyproject.toml -o requirements.dev.txt
 
-FROM python:3.13-slim-bookworm as dev
+FROM python:3.14-slim-bookworm AS dev
 
 WORKDIR /src
 
@@ -23,3 +23,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pip install --upgrade pip && pip install --no-cache-dir -r requirements.dev.txt
 
 COPY ./src .
+
+CMD ["uvicorn", "presentation.http.app:get_litestar", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+FROM python:3.14-slim-bookworm AS prod
+
+WORKDIR /src
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY --from=builder requirements.prod.txt /src
+
+RUN pip install --no-cache-dir -r requirements.prod.txt
+
+COPY ./src .
+
+CMD ["uvicorn", "presentation.http.app:get_litestar", "--factory", "--host", "0.0.0.0", "--port", "8000"]

@@ -19,7 +19,7 @@ class UserAuthenticatedEventSchema(BaseModel):
 @event
 class UserProfileUpdatedEventSchema(BaseModel):
     user_id: str
-    updated_fields: str
+    updated_fields: list[str]
 
 
 @event

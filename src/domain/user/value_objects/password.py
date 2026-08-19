@@ -1,5 +1,3 @@
-# pyright: reportUnsafeMultipleInheritance = false
-
 import re
 from dataclasses import dataclass
 from typing import override
@@ -15,7 +13,7 @@ PASSWORD_PATTERN = re.compile(
 
 
 @dataclass(eq=False)
-class WrongPasswordValueError(ValueError, BaseDomainError):
+class WrongPasswordValueError(BaseDomainError):
     password: str
 
     @property

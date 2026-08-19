@@ -10,7 +10,10 @@ help:
 	@echo "  stop             Stop all docker containers"
 	@echo "  logs-api         Show API logs"
 	@echo "  logs-queue       Show Queue consumer logs"
+	@echo "  logs-outbox      Show Outbox worker logs"
 	@echo "  logs-rabbitmq    Show RabbitMQ logs"
+	@echo "  logs-redis       Show Redis logs"
+	@echo "  logs-hydra       Show Ory Hydra logs"
 	@echo "  rabbitmq-ui      Open RabbitMQ management UI"
 	@echo "  migration        Create alembic database migration"
 
@@ -46,9 +49,21 @@ logs-api:
 logs-queue:
 	docker-compose logs -f queue
 
+.PHONY: logs-outbox
+logs-outbox:
+	docker-compose logs -f outbox_worker
+
 .PHONY: logs-rabbitmq
 logs-rabbitmq:
 	docker-compose logs -f rabbitmq
+
+.PHONY: logs-redis
+logs-redis:
+	docker-compose logs -f redis
+
+.PHONY: logs-hydra
+logs-hydra:
+	docker-compose logs -f hydra
 
 .PHONY: rabbitmq-ui
 rabbitmq-ui:
@@ -58,4 +73,4 @@ rabbitmq-ui:
 
 .PHONY: migration
 migration:
-	cd src && POSTGRES_HOST=localhost uv run alembic -c ../alembic.ini revision --autogenerate
+	POSTGRES_HOST=localhost uv run alembic -c alembic.ini revision --autogenerate
