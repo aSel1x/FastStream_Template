@@ -1,0 +1,17 @@
+meta {
+  name: Disable 2FA
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/auth/2fa/disable
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "current_password": "S3cur3P@ssw0rd!"
+  }
+}

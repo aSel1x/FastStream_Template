@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import override
+from typing import ClassVar, override
 
 from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
@@ -10,6 +10,7 @@ EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 
 @dataclass(eq=False)
 class WrongEmailValueError(BaseDomainError):
+    status: ClassVar[int] = 400
     email: str
 
     @property

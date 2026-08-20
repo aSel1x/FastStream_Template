@@ -1,0 +1,25 @@
+meta {
+  name: Login (direct API)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/users/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "asel1x",
+    "password": "String@123"
+  }
+}
+
+docs {
+  Public, credential-check only — for native/mobile clients. Returns this service's own
+  `session_id` / `refresh_token`, **not** a Bearer token usable on any other request in
+  this collection. Everything else here is authorized through a real Hydra-issued OAuth2
+  token — go through `oidc/1` and `oidc/2` instead.
+}

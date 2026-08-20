@@ -1,0 +1,17 @@
+meta {
+  name: Add Permission
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/admin/roles/paste-role-id-here/permissions
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "permission_name": "content:write"
+  }
+}

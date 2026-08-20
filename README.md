@@ -91,6 +91,12 @@ uv run uvicorn presentation.http.app:get_litestar --factory --reload
 This still requires Postgres, Redis, RabbitMQ, and Hydra to be reachable (e.g. run just the
 infra services from `docker-compose.yaml`: `docker-compose up postgres redis rabbitmq hydra`).
 
+### Trying it out by hand
+
+The `bruno/` directory is a click-through [Bruno](https://www.usebruno.com/) collection covering
+every endpoint, including the Hydra OIDC login/consent dance (open Bruno, open the folder, pick the
+**Local** environment) — see its root Docs tab for the walkthrough. No curl, no hand-written JSON.
+
 ## `make` commands
 
 | Command | Description |

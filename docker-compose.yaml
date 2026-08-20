@@ -117,6 +117,10 @@ services:
     image: app
     env_file:
       - .env
+    # POSTGRES_PORT in .env is the host-exposed port (docker-compose "ports:" mapping below);
+    # inside the docker network postgres always listens on its own container port, 5432.
+    environment:
+      POSTGRES_PORT: 5432
     depends_on:
       postgres:
         condition: service_healthy
@@ -159,6 +163,10 @@ services:
     image: app
     env_file:
       - .env
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port, not the
+    # in-network one.
+    environment:
+      POSTGRES_PORT: 5432
     depends_on:
       postgres:
         condition: service_healthy
@@ -191,8 +199,11 @@ services:
     # the image's /src (which IS the repo's src/ flattened to the filesystem root). Running from
     # / with PYTHONPATH=/src makes both the relative path and the app imports in env.py resolve.
     working_dir: /
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port, not the
+    # in-network one.
     environment:
       PYTHONPATH: /src
+      POSTGRES_PORT: 5432
     command: sh -c "alembic -c /src/alembic.ini upgrade head"
     networks:
       - shared

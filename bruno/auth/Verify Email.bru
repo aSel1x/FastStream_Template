@@ -1,0 +1,24 @@
+meta {
+  name: Verify Email
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/v1/auth/verify-email
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "token": "paste-verification-token-here"
+  }
+}
+
+docs {
+  Needs a Bearer token (not in this service's public-endpoint exclude list) — run
+  `oidc/1` + `oidc/2` first. The token itself comes over email
+  (`infrastructure/email/sender.py`); check `api` container logs or the
+  `email_verification_token` column in Postgres in local dev.
+}

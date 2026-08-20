@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import override
+from typing import ClassVar, override
 
 from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
@@ -14,6 +14,7 @@ PASSWORD_PATTERN = re.compile(
 
 @dataclass(eq=False)
 class WrongPasswordValueError(BaseDomainError):
+    status: ClassVar[int] = 400
     password: str
 
     @property

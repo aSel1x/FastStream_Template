@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import override
+from typing import ClassVar, override
 
 from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
@@ -11,6 +11,7 @@ USERNAME_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9_]+$')
 
 @dataclass(eq=False)
 class WrongUsernameValueError(BaseDomainError):
+    status: ClassVar[int] = 400
     username: str
 
 

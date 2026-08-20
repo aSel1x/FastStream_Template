@@ -181,8 +181,43 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
         _ = await self._session.execute(
             ROLES_TABLE.update()
             .where(ROLES_TABLE.c.id == role.role_id.to_raw())
-            .values(description=role.description)
+            .values(name=role.name.to_raw(), description=role.description)
         )
+
+        role_id_raw = role.role_id.to_raw()
+        current_ids = set(
+            (await self._session.scalars(
+                select(ROLE_PERMISSIONS_TABLE.c.permission_id).where(
+                    ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw
+                )
+            )).all()
+        )
+
+        desired_ids: set[UUID] = set()
+        for perm in role.permissions:
+            perm_id = await self._session.scalar(
+                select(PERMISSION_ID_COLUMN).where(PERMISSIONS_TABLE.c.name == perm.name)
+            )
+            if perm_id is None:
+                perm_id = uuid4()
+                _ = await self._session.execute(PERMISSIONS_TABLE.insert().values(
+                    id=perm_id, name=perm.name, description=perm.description,
+                ))
+            desired_ids.add(perm_id)
+
+        to_remove = current_ids - desired_ids
+        if to_remove:
+            _ = await self._session.execute(
+                ROLE_PERMISSIONS_TABLE.delete().where(and_(
+                    ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw,
+                    ROLE_PERMISSIONS_TABLE.c.permission_id.in_(to_remove),
+                ))
+            )
+        for perm_id in desired_ids - current_ids:
+            _ = await self._session.execute(ROLE_PERMISSIONS_TABLE.insert().values(
+                role_id=role_id_raw, permission_id=perm_id,
+            ))
+
         await self._session.flush()
 
     @override

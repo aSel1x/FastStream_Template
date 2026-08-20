@@ -131,6 +131,17 @@ class SQLAlchemySessionRepo(SQLAlchemyRepo, SessionRepositoryInterface):
             expires_at=session.expires_at,
             is_revoked=session.is_revoked,
         ))
+
+        for token in session.refresh_tokens:
+            _ = await self._session.execute(REFRESH_TOKENS_TABLE.insert().values(
+                id=token.id,
+                session_id=session.session_id,
+                token_hash=token.token_hash.to_raw(),
+                expires_at=token.expires_at,
+                is_revoked=token.is_revoked,
+                created_at=token.created_at,
+            ))
+
         await self._session.flush()
 
     @override

@@ -1,0 +1,11 @@
+meta {
+  name: List Sessions
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/v1/sessions?limit=20&offset=0
+  body: none
+  auth: inherit
+}

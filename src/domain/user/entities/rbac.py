@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Self, override
+from typing import ClassVar, Self, override
 from uuid import uuid4
 
 from domain.common.entity import BaseEntity
@@ -16,6 +16,7 @@ PERMISSION_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_:.-]{1,63}$")
 
 @dataclass(eq=False)
 class WrongPermissionNameError(BaseDomainError):
+    status: ClassVar[int] = 400
     name: str
 
     @property

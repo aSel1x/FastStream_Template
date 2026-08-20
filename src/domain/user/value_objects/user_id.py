@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import override
+from typing import ClassVar, override
 from uuid import UUID
 
 from domain.common.exceptions import BaseDomainError
@@ -8,6 +8,7 @@ from domain.common.value_object import ValueObject
 
 @dataclass(eq=False)
 class WrongUserIDError(BaseDomainError):
+    status: ClassVar[int] = 400
     user_id: object
 
     @property

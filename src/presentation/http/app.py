@@ -2,6 +2,7 @@ import signal
 import sys
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from functools import partial
 from types import FrameType
 import os
 from pathlib import Path
@@ -196,8 +197,8 @@ def get_litestar() -> Litestar:
         debug=not is_production,
         openapi_config=openapi_config,
         on_startup=[
-            lambda: seed_oauth_clients(container),
-            lambda: seed_admin_role(container),
+            partial(seed_oauth_clients, container),
+            partial(seed_admin_role, container),
         ],
         lifespan=[_lifespan(container)],
         plugins=plugins,

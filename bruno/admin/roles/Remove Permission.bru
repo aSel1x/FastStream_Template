@@ -1,0 +1,11 @@
+meta {
+  name: Remove Permission
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{base_url}}/admin/roles/paste-role-id-here/permissions/content:write
+  body: none
+  auth: inherit
+}

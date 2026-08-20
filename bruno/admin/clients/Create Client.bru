@@ -1,0 +1,26 @@
+meta {
+  name: Create Client
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/admin/clients/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "client_name": "Another test app",
+    "redirect_uris": ["http://localhost:3000/callback"],
+    "grant_types": ["authorization_code"],
+    "scopes": ["openid", "profile", "email"],
+    "is_confidential": false
+  }
+}
+
+docs {
+  Registers an OAuth2 client directly against Hydra through this service's admin API —
+  an alternative to seeding one via `OAUTH_SEED_CLIENTS` in `.env`.
+}

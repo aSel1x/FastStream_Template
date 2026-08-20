@@ -1,0 +1,18 @@
+meta {
+  name: Enable 2FA
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/v1/auth/2fa/enable
+  body: none
+  auth: inherit
+}
+
+docs {
+  Returns `secret`, `backup_codes`, and `provisioning_uri` — paste the `provisioning_uri`
+  into any TOTP app (Google Authenticator, Authy, ...) or a QR-code generator to scan it,
+  then use the 6-digit code it produces in `Verify 2FA`. Next password login through
+  `oidc/1`'s form will then ask for a 2FA code too.
+}

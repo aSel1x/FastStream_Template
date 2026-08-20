@@ -1,0 +1,17 @@
+meta {
+  name: Verify 2FA
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/auth/2fa/verify
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "123456"
+  }
+}

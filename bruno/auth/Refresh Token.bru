@@ -1,0 +1,17 @@
+meta {
+  name: Refresh Token
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/v1/auth/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "ory_at_-OVUH0719eXfDW8QqxoKCL6rzBYnPawOuBPc8g3VaDE.RaJ-gvFQCjt4W31XUw1MhAZs-NIk8HisV_IsBibFICE"
+  }
+}

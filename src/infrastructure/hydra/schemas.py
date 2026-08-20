@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from application.common.interfaces.acl.hydra_admin import HydraClient, HydraClientCreate
 
@@ -44,6 +44,13 @@ class HydraConsentRequest(_HydraModel):
     login_session_id: str | None = None
     skip: bool = False
     context: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator('context', mode='before')
+    @classmethod
+    def _coerce_null_context(cls, value: dict[str, JsonValue] | None) -> dict[str, JsonValue]:
+        """Hydra omits `context` on a login request accepted without one (e.g. the skip-login
+        branch) and reports it back as JSON `null`, not an absent key."""
+        return value if value is not None else {}
 
 
 class HydraLogoutRequest(_HydraModel):

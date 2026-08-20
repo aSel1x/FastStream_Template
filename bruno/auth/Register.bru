@@ -1,0 +1,25 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/v1/users/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "demo_user",
+    "password": "S3cur3P@ssw0rd!",
+    "email": "demo@example.com"
+  }
+}
+
+docs {
+  Public. Response body is just the new `user_id` (a UUID string) — copy it, you'll
+  need it for `oidc/1. Get Login Code (Hydra)` and for the admin bootstrap
+  (`INITIAL_ADMIN_USER_ID`) described in the collection's root Docs tab.
+}

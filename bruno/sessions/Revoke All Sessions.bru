@@ -1,0 +1,16 @@
+meta {
+  name: Revoke All Sessions
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{base_url}}/v1/sessions
+  body: none
+  auth: inherit
+}
+
+docs {
+  True logout-everywhere — also revokes the subject's Hydra login/consent sessions
+  (`RevokeAllSessionsUseCase`), unlike single-session revoke.
+}

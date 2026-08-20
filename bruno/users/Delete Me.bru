@@ -1,0 +1,15 @@
+meta {
+  name: Delete Me
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{base_url}}/v1/users/me
+  body: none
+  auth: inherit
+}
+
+docs {
+  Soft-delete of the currently authenticated user. Destructive — run last.
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Create Role
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/admin/roles/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "editor",
+    "description": "Can edit content"
+  }
+}
+
+docs {
+  Needs the authenticated user to already have the `admin` permission — see the
+  admin-bootstrap steps in the collection root's Docs tab.
+}

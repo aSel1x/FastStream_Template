@@ -1,0 +1,31 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  # Backend Template
+
+  Click-through collection for the OIDC User Identity microservice — no curl, no
+  hand-written JSON. Requests default to Bearer auth using the collection variable
+  `access_token`; get one from `oidc/2. Exchange Code for Token`.
+
+  ## Quickstart
+
+  1. Select the **Local** environment (top-right dropdown).
+  2. `auth/Register` — creates a user, grab `user_id` from the response.
+  3. `oidc/1. Get Login Code (Hydra)` — open its URL (see the request's Docs tab) in a
+     real browser tab, log in with the user from step 2, approve consent, copy the
+     `code` query param from the final redirect URL.
+  4. `oidc/2. Exchange Code for Token` — paste that code into `code` in the request
+     body, hit Send. Its post-response script stores `access_token` as a collection
+     variable automatically — every other request below picks it up.
+  5. `users/Get Me`, `sessions/*`, `2fa/*` now work out of the box.
+  6. For `admin/*` (roles/permissions/OAuth clients): set `INITIAL_ADMIN_USER_ID` in
+     `.env` to the `user_id` from step 2, then `docker compose up -d --force-recreate api`
+     to grant that user the admin role, then repeat steps 3–4 to get a token for that
+     admin user.
+}

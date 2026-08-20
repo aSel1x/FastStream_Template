@@ -1,0 +1,17 @@
+meta {
+  name: Revoke Role
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/admin/roles/paste-role-id-here/revoke
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "user_id": "paste-target-user-id-here"
+  }
+}

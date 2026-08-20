@@ -83,7 +83,11 @@ class HydraBridgeController(Controller):
             raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail='Unknown or expired login request') from e
 
         if login_request.skip and login_request.subject:
-            result = await hydra.accept_login_request(login_challenge, subject=login_request.subject)
+            result = await hydra.accept_login_request(
+                login_challenge,
+                subject=login_request.subject,
+                context={'user_id': login_request.subject},
+            )
             return Redirect(result.redirect_to)
 
         return _login_template(login_challenge)

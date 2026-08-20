@@ -14,7 +14,29 @@ from domain.user.value_objects import (
     Username,
 )
 from domain.user.entities.user import User
+from domain.user.entities.rbac import WrongPermissionNameError
 from domain.user.entities.session import SessionAggregate, DeviceInfo, RefreshToken
+from domain.user.exceptions import (
+    AccountLockedError,
+    EmailAlreadyExistsError,
+    EmailNotVerifiedError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    PasswordResetExpiredError,
+    PermissionDeniedError,
+    RoleAlreadyExistsError,
+    RoleNotFoundError,
+    UserIsDeletedError,
+    UserNotFoundError,
+    UsernameAlreadyExistsError,
+)
+from domain.user.value_objects.email import WrongEmailValueError
+from domain.user.value_objects.password import WrongPasswordValueError
+from domain.user.value_objects.role_id import WrongRoleIDError
+from domain.user.value_objects.role_name import WrongRoleNameError
+from domain.user.value_objects.token_hash import WrongTokenHashError
+from domain.user.value_objects.user_id import WrongUserIDError
+from domain.user.value_objects.username import WrongUsernameValueError
 
 
 class TestUserID:
@@ -412,3 +434,33 @@ class TestValueObjects:
     def test_hashed_password_to_raw(self):
         password = HashedPassword(b"hashed")
         assert password.to_raw() == b"hashed"
+
+
+class TestDomainErrorStatusCodes:
+    """BaseAppError.status defaults to 500; every BaseDomainError subclass must override it,
+    or it silently ships as an Internal Server Error instead of its real 4xx."""
+
+    @pytest.mark.parametrize(('exc_cls', 'expected_status'), [
+        (UserIsDeletedError, 403),
+        (UsernameAlreadyExistsError, 409),
+        (EmailAlreadyExistsError, 409),
+        (InvalidCredentialsError, 401),
+        (UserNotFoundError, 404),
+        (InvalidTokenError, 400),
+        (AccountLockedError, 423),
+        (EmailNotVerifiedError, 403),
+        (PasswordResetExpiredError, 400),
+        (PermissionDeniedError, 403),
+        (RoleNotFoundError, 404),
+        (RoleAlreadyExistsError, 409),
+        (WrongEmailValueError, 400),
+        (WrongPasswordValueError, 400),
+        (WrongRoleIDError, 400),
+        (WrongRoleNameError, 400),
+        (WrongTokenHashError, 400),
+        (WrongUserIDError, 400),
+        (WrongUsernameValueError, 400),
+        (WrongPermissionNameError, 400),
+    ])
+    def test_domain_error_has_expected_http_status(self, exc_cls, expected_status):
+        assert exc_cls.status == expected_status

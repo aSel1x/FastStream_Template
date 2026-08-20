@@ -1,0 +1,65 @@
+meta {
+  name: 1. Get Login Code (Hydra)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{hydra_public_url}}/oauth2/auth?client_id={{client_id}}&response_type=code&scope=openid%20profile%20email&redirect_uri={{redirect_uri}}&state={{state}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let state = '';
+  for (let i = 0; i < 24; i++) {
+    state += chars[Math.floor(Math.random() * chars.length)];
+  }
+  bru.setVar('state', state);
+}
+
+settings {
+  encodeUrl: false
+  followRedirects: false
+  maxRedirects: 5
+  timeout: inherit
+}
+
+docs {
+  Nothing to fill in by hand — the pre-request script above generates a fresh `state`
+  value every time you hit Send (Hydra rejects anything shorter than 8 characters as
+  "too weak", so a fixed short literal breaks this).
+  
+  Note: the query string is baked directly into `url` here rather than a separate
+  `params:query` block — on at least Bruno 4.0.0 (bruno-runtime), GET requests using
+  `params:query` reached Hydra with an empty query string even though the address bar
+  preview showed it resolved correctly. Confirmed via Hydra's own access log
+  (`query:<nil>` for Bruno vs. an actual query string for an equivalent curl). If your
+  Bruno version doesn't have this quirk, either form works — this one just also works on
+  the buggy versions.
+  
+  You DO hit Send on this one (unlike a real browser flow, Hydra's first hop is a plain
+  redirect, no form yet — Bruno can follow that leg fine):
+  
+  1. Hit Send. Bruno follows redirects by default, so the response you get back is
+     already the rendered login page HTML — no `Location` header to find.
+  2. Switch the response view to raw/source and find:
+     `<input type="hidden" name="login_challenge" value="...">` — copy that value.
+     (Alternative: turn off "Follow Redirects" in this request's Settings tab, and the
+     `Location` header of the now-visible 302/303 response gives you the same URL
+     directly, no digging through HTML required.)
+  3. Build `http://localhost:8000/auth/login?login_challenge=<value>` and open it in a
+     **real, separate browser window (Chrome/Firefox/...) — not Bruno's response
+     preview.** The login form's POST only works with a real top-level browser
+     navigation; submitting it from inside Bruno's HTML preview silently breaks (you'll
+     get a 404 that looks like the URL randomly "broke").
+  4. Log in with the user from `auth/Register`.
+  5. Approve the consent screen.
+  6. It redirects to `{{redirect_uri}}` — the browser will show a 404 (nothing serves
+     `/callback`), that's expected. Copy the `code` query param out of the address bar.
+  7. Paste it into `oidc/2. Exchange Code for Token` and hit Send there.
+  
+  Requires `OAUTH_SEED_CLIENTS` in `.env` to include a client matching `client_id` /
+  `redirect_uri` from the Local environment — see the collection root's Docs tab.
+}

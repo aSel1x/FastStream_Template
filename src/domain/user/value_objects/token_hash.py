@@ -1,6 +1,6 @@
 import hashlib
 from dataclasses import dataclass
-from typing import Self, override
+from typing import ClassVar, Self, override
 
 from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
@@ -8,6 +8,8 @@ from domain.common.value_object import ValueObject
 
 @dataclass(eq=False)
 class WrongTokenHashError(BaseDomainError):
+    status: ClassVar[int] = 400
+
     @property
     @override
     def detail(self) -> str:

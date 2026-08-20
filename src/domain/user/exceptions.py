@@ -6,13 +6,17 @@ from domain.common.exceptions import BaseDomainError
 
 # Plain HTTP status ints (no framework import — domain stays framework-free); the presentation
 # layer's exception handlers read `.status` off these via getattr.
+_HTTP_BAD_REQUEST = 400
+_HTTP_UNAUTHORIZED = 401
 _HTTP_FORBIDDEN = 403
 _HTTP_NOT_FOUND = 404
+_HTTP_CONFLICT = 409
 _HTTP_LOCKED = 423
 
 
 @dataclass(eq=False)
 class UserIsDeletedError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_FORBIDDEN
     user_id: UUID
 
     @property
@@ -23,6 +27,7 @@ class UserIsDeletedError(BaseDomainError):
 
 @dataclass(eq=False)
 class UsernameAlreadyExistsError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_CONFLICT
     username: str | None = None
 
     @property
@@ -35,6 +40,7 @@ class UsernameAlreadyExistsError(BaseDomainError):
 
 @dataclass(eq=False)
 class EmailAlreadyExistsError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_CONFLICT
     email: str | None = None
 
     @property
@@ -47,6 +53,7 @@ class EmailAlreadyExistsError(BaseDomainError):
 
 @dataclass(eq=False)
 class InvalidCredentialsError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_UNAUTHORIZED
     message: str | None = None
 
     @property
@@ -70,6 +77,7 @@ class UserNotFoundError(BaseDomainError):
 
 @dataclass(eq=False)
 class InvalidTokenError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_BAD_REQUEST
     message: str | None = None
 
     @property
@@ -93,6 +101,8 @@ class AccountLockedError(BaseDomainError):
 
 @dataclass(eq=False)
 class EmailNotVerifiedError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_FORBIDDEN
+
     @property
     @override
     def detail(self) -> str:
@@ -101,6 +111,8 @@ class EmailNotVerifiedError(BaseDomainError):
 
 @dataclass(eq=False)
 class PasswordResetExpiredError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_BAD_REQUEST
+
     @property
     @override
     def detail(self) -> str:
@@ -135,6 +147,7 @@ class RoleNotFoundError(BaseDomainError):
 
 @dataclass(eq=False)
 class RoleAlreadyExistsError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_CONFLICT
     role_name: str | None = None
 
     @property

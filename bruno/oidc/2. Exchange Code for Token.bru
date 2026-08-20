@@ -1,0 +1,32 @@
+meta {
+  name: 2. Exchange Code for Token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{hydra_public_url}}/oauth2/token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  grant_type: authorization_code
+  @description('paste-the-code-from-your-browser-address-bar')
+  code: ory_ac_YptTcaz4XBcQduwURvP4wdAj_gY8619a2M1kmLzE05Y.gHZevRLpa91dyB71ru792QwS-XDor-BntV3FmLtsZwY
+  redirect_uri: {{redirect_uri}}
+  client_id: {{client_id}}
+}
+
+script:post-response {
+  if (res.body && res.body.access_token) {
+    bru.setVar("access_token", res.body.access_token);
+  }
+}
+
+docs {
+  Public client (`token_endpoint_auth_method: none` — see `OAUTH_SEED_CLIENTS`), so no
+  client secret needed. On success the script above stashes `access_token` as a
+  collection variable — every other request in this collection is already set to
+  `auth: inherit` against it, so nothing else to configure.
+}

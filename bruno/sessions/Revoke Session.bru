@@ -1,0 +1,15 @@
+meta {
+  name: Revoke Session
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{base_url}}/v1/sessions/paste-session-id-here
+  body: none
+  auth: inherit
+}
+
+docs {
+  Grab a `session_id` from `List Sessions` first and swap it into the URL.
+}
