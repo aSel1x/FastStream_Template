@@ -242,3 +242,8 @@ fabric.properties
 
 # Other
 .DS_Store
+
+# AI agent / neural guidance files
+CLAUDE.md
+.claude/
+AGENTS.md
