@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
@@ -23,3 +24,7 @@ class SessionRepositoryInterface(Protocol):
     async def delete(self, session_id: UUID) -> None: ...
 
     async def delete_by_user_id(self, user_id: UserID) -> None: ...
+
+    async def delete_expired(self, before: datetime) -> int:
+        """Remove sessions that expired before `before`. Returns how many were removed."""
+        ...

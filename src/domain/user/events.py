@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import override
+from typing import ClassVar, override
 from uuid import UUID
 
 from domain.common.event import BaseEvent
@@ -167,6 +167,8 @@ class AccountUnlockedEvent(BaseEvent):
 
 @dataclass
 class PasswordResetRequestedEvent(BaseEvent):
+    sensitive_fields: ClassVar[frozenset[str]] = frozenset({'reset_token'})
+
     user_id: UUID
     email: str
     reset_token: str
@@ -196,6 +198,8 @@ class PasswordChangedEvent(BaseEvent):
 
 @dataclass
 class EmailVerificationRequestedEvent(BaseEvent):
+    sensitive_fields: ClassVar[frozenset[str]] = frozenset({'verification_token'})
+
     user_id: UUID
     email: str
     verification_token: str
@@ -222,11 +226,13 @@ class EmailVerifiedEvent(BaseEvent):
 @dataclass
 class TwoFactorEnabledEvent(BaseEvent):
     user_id: UUID
-    backup_codes: tuple[str, ...]
+    #: How many recovery codes were issued. The codes themselves are shown to the user once,
+    #: in the enrolment response, and never enter the outbox or the broker.
+    codes_issued: int
 
     @override
     def to_payload(self) -> dict[str, JsonValue]:
-        return {'user_id': str(self.user_id), 'backup_codes': list(self.backup_codes)}
+        return {'user_id': str(self.user_id), 'codes_issued': self.codes_issued}
 
 
 @dataclass
@@ -238,34 +244,39 @@ class TwoFactorDisabledEvent(BaseEvent):
         return {'user_id': str(self.user_id)}
 
 
-_EVENT_AGGREGATE: dict[str, tuple[str, str]] = {
-    'UserCreatedEvent': ('User', 'user_id'),
-    'UserAuthenticatedEvent': ('User', 'user_id'),
-    'UserProfileUpdatedEvent': ('User', 'user_id'),
-    'UserDeletedEvent': ('User', 'user_id'),
-    'AccountLockedEvent': ('User', 'user_id'),
-    'AccountUnlockedEvent': ('User', 'user_id'),
-    'PasswordResetRequestedEvent': ('User', 'user_id'),
-    'PasswordResetCompletedEvent': ('User', 'user_id'),
-    'PasswordChangedEvent': ('User', 'user_id'),
-    'EmailVerificationRequestedEvent': ('User', 'user_id'),
-    'EmailVerifiedEvent': ('User', 'user_id'),
-    'TwoFactorEnabledEvent': ('User', 'user_id'),
-    'TwoFactorDisabledEvent': ('User', 'user_id'),
-    'SessionCreatedEvent': ('Session', 'session_id'),
-    'SessionRevokedEvent': ('Session', 'session_id'),
-    'TokenRefreshedEvent': ('Session', 'session_id'),
-    'RoleCreatedEvent': ('Role', 'role_id'),
-    'RoleUpdatedEvent': ('Role', 'role_id'),
-    'RoleDeletedEvent': ('Role', 'role_id'),
-    'UserRoleAssignedEvent': ('Role', 'role_id'),
-    'UserRoleRevokedEvent': ('Role', 'role_id'),
+EVENT_AGGREGATE: dict[type[BaseEvent], tuple[str, str]] = {
+    UserCreatedEvent: ('User', 'user_id'),
+    UserAuthenticatedEvent: ('User', 'user_id'),
+    UserProfileUpdatedEvent: ('User', 'user_id'),
+    UserDeletedEvent: ('User', 'user_id'),
+    AccountLockedEvent: ('User', 'user_id'),
+    AccountUnlockedEvent: ('User', 'user_id'),
+    PasswordResetRequestedEvent: ('User', 'user_id'),
+    PasswordResetCompletedEvent: ('User', 'user_id'),
+    PasswordChangedEvent: ('User', 'user_id'),
+    EmailVerificationRequestedEvent: ('User', 'user_id'),
+    EmailVerifiedEvent: ('User', 'user_id'),
+    TwoFactorEnabledEvent: ('User', 'user_id'),
+    TwoFactorDisabledEvent: ('User', 'user_id'),
+    SessionCreatedEvent: ('Session', 'session_id'),
+    SessionRevokedEvent: ('Session', 'session_id'),
+    TokenRefreshedEvent: ('Session', 'session_id'),
+    RoleCreatedEvent: ('Role', 'role_id'),
+    RoleUpdatedEvent: ('Role', 'role_id'),
+    RoleDeletedEvent: ('Role', 'role_id'),
+    UserRoleAssignedEvent: ('Role', 'role_id'),
+    UserRoleRevokedEvent: ('Role', 'role_id'),
 }
+"""Which aggregate each event belongs to, keyed on the class.
+
+Keyed on `type[BaseEvent]` rather than on `__name__`: a typo in a string key was a silent
+no-op that fell through to ('Unknown', ''), while a wrong class here is an import error.
+"""
 
 
 def event_aggregate(event: BaseEvent) -> tuple[str, UUID | None]:
-    """Return the (aggregate_type, aggregate_id) a domain event belongs to, for outbox/audit persistence."""
-    aggregate_type, id_field = _EVENT_AGGREGATE.get(type(event).__name__, ('Unknown', ''))
+    """Return the (aggregate_type, aggregate_id) an event belongs to, for outbox/audit."""
+    aggregate_type, id_field = EVENT_AGGREGATE.get(type(event), ('Unknown', ''))
     if not id_field:
         return aggregate_type, None
     aggregate_id = event.to_payload().get(id_field)

@@ -12,13 +12,13 @@ from infrastructure.db.sqlalchemy.models.user import USERS_TABLE
 
 __all__ = (
     'AUDIT_LOGS_TABLE',
-    'BaseModel',
-    'OutboxEvent',
     'PERMISSIONS_TABLE',
     'REFRESH_TOKENS_TABLE',
-    'ROLE_PERMISSIONS_TABLE',
     'ROLES_TABLE',
+    'ROLE_PERMISSIONS_TABLE',
     'SESSIONS_TABLE',
-    'USER_ROLES_TABLE',
     'USERS_TABLE',
+    'USER_ROLES_TABLE',
+    'BaseModel',
+    'OutboxEvent',
 )

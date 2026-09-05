@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 from uuid import UUID
 
 from application.common.interfaces import UnitOfWorkInterface
@@ -52,7 +52,7 @@ class RoleOutput:
     permissions: tuple[str, ...]
 
     @classmethod
-    def from_role(cls, role: Role) -> 'RoleOutput':
+    def from_role(cls, role: Role) -> RoleOutput:
         return cls(
             role_id=role.role_id.to_raw(),
             name=role.name.to_raw(),
@@ -71,13 +71,12 @@ class AssignRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: AssignRoleInput) -> None:
-        user = await self._rbac_service.assign_role(
-            user_id=UserID(input.user_id),
-            role_id=RoleID(input.role_id),
-            assigned_by=UserID(input.assigned_by) if input.assigned_by else None,
+    async def __call__(self, data: AssignRoleInput) -> None:
+        _ = await self._rbac_service.assign_role(
+            user_id=UserID(data.user_id),
+            role_id=RoleID(data.role_id),
+            assigned_by=UserID(data.assigned_by) if data.assigned_by else None,
         )
-        self._uow.add_events(user.pull_events())
         await self._uow.commit()
 
 
@@ -91,12 +90,11 @@ class RevokeRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: RevokeRoleInput) -> None:
-        user = await self._rbac_service.revoke_role(
-            user_id=UserID(input.user_id),
-            role_id=RoleID(input.role_id),
+    async def __call__(self, data: RevokeRoleInput) -> None:
+        _ = await self._rbac_service.revoke_role(
+            user_id=UserID(data.user_id),
+            role_id=RoleID(data.role_id),
         )
-        self._uow.add_events(user.pull_events())
         await self._uow.commit()
 
 
@@ -110,9 +108,8 @@ class CreateRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: CreateRoleInput) -> RoleOutput:
-        role = await self._rbac_service.create_role(RoleName(input.name), input.description)
-        self._uow.add_events(role.pull_events())
+    async def __call__(self, data: CreateRoleInput) -> RoleOutput:
+        role = await self._rbac_service.create_role(RoleName(data.name), data.description)
         await self._uow.commit()
         return RoleOutput.from_role(role)
 
@@ -127,9 +124,8 @@ class DeleteRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: DeleteRoleInput) -> None:
-        role = await self._rbac_service.delete_role(RoleID(input.role_id))
-        self._uow.add_events(role.pull_events())
+    async def __call__(self, data: DeleteRoleInput) -> None:
+        _ = await self._rbac_service.delete_role(RoleID(data.role_id))
         await self._uow.commit()
 
 
@@ -143,11 +139,10 @@ class AddPermissionToRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: AddPermissionToRoleInput) -> RoleOutput:
+    async def __call__(self, data: AddPermissionToRoleInput) -> RoleOutput:
         role = await self._rbac_service.add_permission_to_role(
-            RoleID(input.role_id), input.permission_name
+            RoleID(data.role_id), data.permission_name
         )
-        self._uow.add_events(role.pull_events())
         await self._uow.commit()
         return RoleOutput.from_role(role)
 
@@ -162,10 +157,9 @@ class RemovePermissionFromRoleUseCase:
         self._rbac_service = rbac_service
         self._uow = uow
 
-    async def __call__(self, input: RemovePermissionFromRoleInput) -> RoleOutput:
+    async def __call__(self, data: RemovePermissionFromRoleInput) -> RoleOutput:
         role = await self._rbac_service.remove_permission_from_role(
-            RoleID(input.role_id), input.permission_name
+            RoleID(data.role_id), data.permission_name
         )
-        self._uow.add_events(role.pull_events())
         await self._uow.commit()
         return RoleOutput.from_role(role)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from domain.user.value_objects import Email, UserID, Username
+from domain.user.value_objects import Email, TokenHash, UserID, Username
 
 if TYPE_CHECKING:
     from domain.user.entities import User
@@ -21,6 +21,18 @@ class UserRepositoryInterface(Protocol):
 
     async def acquire_by_email(self, email: Email) -> User | None:
         """Acquire a user by email."""
+        ...
+
+    async def acquire_by_verification_token(self, token_hash: TokenHash) -> User | None:
+        """Acquire a user by the hash of their email-verification token.
+
+        Looking the user up *by* the token is what lets an emailed link work without the
+        recipient being authenticated or having to supply their own id.
+        """
+        ...
+
+    async def acquire_by_reset_token(self, token_hash: TokenHash) -> User | None:
+        """Acquire a user by the hash of their password-reset token."""
         ...
 
     async def add(self, user: User) -> None:

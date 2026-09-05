@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 from uuid import UUID
 
 from application.common.interfaces import UnitOfWorkInterface
@@ -33,14 +33,13 @@ class UpdateProfileUseCase:
         self._user_service = user_service
         self._uow = uow
 
-    async def __call__(self, input: UpdateProfileInput) -> UpdateProfileOutput:
-        user = await self._user_service.get_user_by_id(UserID(input.user_id))
+    async def __call__(self, data: UpdateProfileInput) -> UpdateProfileOutput:
+        user = await self._user_service.get_user_by_id(UserID(data.user_id))
         updated = await self._user_service.update_user(
             user,
-            username=Username(input.username) if input.username else None,
-            email=Email(input.email) if input.email else None,
+            username=Username(data.username) if data.username else None,
+            email=Email(data.email) if data.email else None,
         )
-        self._uow.add_events(updated.pull_events())
         await self._uow.commit()
         return UpdateProfileOutput(
             username=updated.username.to_raw() or '',

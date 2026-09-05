@@ -1,14 +1,17 @@
 from typing import final
 
-from application.hydra_clients.commands.create_client import CreateOAuthClientInput, CreateOAuthClientUseCase
+from dishka import FromDishka
+from dishka.integrations.litestar import inject
+from litestar import Controller, delete, get, post
+from pydantic import BaseModel
+
+from application.hydra_clients.commands.create_client import (
+    CreateOAuthClientInput,
+    CreateOAuthClientUseCase,
+)
 from application.hydra_clients.commands.delete_client import DeleteOAuthClientUseCase
 from application.hydra_clients.commands.rotate_client_secret import RotateClientSecretUseCase
 from application.hydra_clients.queries.list_clients import ListOAuthClientsUseCase
-from litestar import Controller, delete, get, post
-from pydantic import BaseModel
-from dishka import FromDishka
-from dishka.integrations.litestar import inject
-
 from presentation.http.guards import require_admin
 
 
@@ -58,14 +61,16 @@ class AdminClientsController(Controller):
         data: CreateClientRequest,
         use_case: FromDishka[CreateOAuthClientUseCase],
     ) -> CreateClientResponse:
-        result = await use_case(CreateOAuthClientInput(
-            client_name=data.client_name,
-            redirect_uris=data.redirect_uris,
-            grant_types=data.grant_types,
-            scopes=data.scopes,
-            is_confidential=data.is_confidential,
-            client_uri=data.client_uri,
-        ))
+        result = await use_case(
+            CreateOAuthClientInput(
+                client_name=data.client_name,
+                redirect_uris=data.redirect_uris,
+                grant_types=data.grant_types,
+                scopes=data.scopes,
+                is_confidential=data.is_confidential,
+                client_uri=data.client_uri,
+            )
+        )
         return CreateClientResponse(
             client_id=result.client_id,
             client_secret=result.client_secret,

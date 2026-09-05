@@ -27,7 +27,10 @@ class IdempotencyStore:
         self._cache = cache
 
     async def get_cached_response(
-        self, endpoint: str, scope: str, idempotency_key: str,
+        self,
+        endpoint: str,
+        scope: str,
+        idempotency_key: str,
     ) -> dict[str, JsonValue] | None:
         cached = await self._cache.get(_cache_key(endpoint, scope, idempotency_key))
         if cached is None:
@@ -35,7 +38,15 @@ class IdempotencyStore:
         return _response_adapter.validate_json(cached)
 
     async def cache_response(
-        self, endpoint: str, scope: str, idempotency_key: str, response: dict[str, JsonValue],
+        self,
+        endpoint: str,
+        scope: str,
+        idempotency_key: str,
+        response: dict[str, JsonValue],
     ) -> None:
         key = _cache_key(endpoint, scope, idempotency_key)
-        await self._cache.set(key, _response_adapter.dump_json(response).decode(), ttl_seconds=_IDEMPOTENCY_TTL_SECONDS)
+        await self._cache.set(
+            key,
+            _response_adapter.dump_json(response).decode(),
+            ttl_seconds=_IDEMPOTENCY_TTL_SECONDS,
+        )

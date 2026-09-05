@@ -9,6 +9,7 @@ Revises: drop_oauth_and_keys_tables
 Create Date: 2026-08-19 13:00:00
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

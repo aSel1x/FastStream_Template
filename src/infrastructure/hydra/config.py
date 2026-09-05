@@ -15,7 +15,7 @@ class HydraConfig:
     request_timeout_seconds: float = 5.0
 
     @classmethod
-    def from_environ(cls) -> 'HydraConfig':
+    def from_environ(cls) -> HydraConfig:
         admin_url = getenv('HYDRA_ADMIN_URL', 'http://localhost:4445')
         public_url = getenv('HYDRA_PUBLIC_URL', 'http://localhost:4444')
 
@@ -29,8 +29,12 @@ class HydraConfig:
             admin_url=admin_url,
             public_url=public_url,
             login_remember_seconds=int(getenv('HYDRA_LOGIN_REMEMBER_SECONDS', '3600')),
-            consent_remember_seconds=int(getenv('HYDRA_CONSENT_REMEMBER_SECONDS', str(60 * 60 * 24 * 30))),
-            introspection_cache_ttl_seconds=int(getenv('HYDRA_INTROSPECTION_CACHE_TTL_SECONDS', '30')),
+            consent_remember_seconds=int(
+                getenv('HYDRA_CONSENT_REMEMBER_SECONDS', str(60 * 60 * 24 * 30))
+            ),
+            introspection_cache_ttl_seconds=int(
+                getenv('HYDRA_INTROSPECTION_CACHE_TTL_SECONDS', '30')
+            ),
             introspection_negative_cache_ttl_seconds=int(
                 getenv('HYDRA_INTROSPECTION_NEGATIVE_CACHE_TTL_SECONDS', '10'),
             ),

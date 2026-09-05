@@ -5,6 +5,7 @@ Revises: add_security_tables
 Create Date: 2026-04-18 17:00:00
 
 """
+
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
@@ -17,7 +18,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table('audit_logs',
+    op.create_table(
+        'audit_logs',
         sa.Column('id', sa.UUID(as_uuid=True), nullable=False),
         sa.Column('user_id', sa.UUID(as_uuid=True), nullable=True),
         sa.Column('action', sa.String(), nullable=False),

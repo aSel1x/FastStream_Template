@@ -6,26 +6,26 @@ from pydantic import BaseModel, ConfigDict
 
 from domain.user.entities.session import DeviceInfo
 from domain.user.interfaces.persistence.readers import (
-    RoleReader,
-    SessionReader,
-    UserReader,
-    UserReadDTO,
-    SessionReadDTO,
     RoleReadDTO,
+    RoleReader,
+    SessionReadDTO,
+    SessionReader,
+    UserReadDTO,
+    UserReader,
 )
-from domain.user.value_objects import AccountLockInfo, TwoFactorSecret, UserID
+from domain.user.value_objects import AccountLockInfo, UserID
 from infrastructure.db.sqlalchemy.models.rbac import (
     PERMISSION_NAME_COLUMN,
     PERMISSIONS_TABLE,
-    ROLES_TABLE,
     ROLE_PERMISSIONS_TABLE,
+    ROLES_TABLE,
     USER_ROLES_TABLE,
 )
 from infrastructure.db.sqlalchemy.models.session import SESSIONS_TABLE
 from infrastructure.db.sqlalchemy.models.user import USERS_TABLE
-
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.expression import ColumnElement, FromClause
 
 
 class _UserSummaryRow(BaseModel):
@@ -37,9 +37,8 @@ class _UserSummaryRow(BaseModel):
     is_email_verified: bool
     is_locked: bool
     lock_until: datetime | None
-    two_factor_secret: str | None
+    two_factor_secret: bytes | None
     two_factor_enabled_at: datetime | None
-    two_factor_backup_codes: list[str] | None
 
 
 class _SessionSummaryRow(BaseModel):
@@ -57,18 +56,13 @@ class _SessionSummaryRow(BaseModel):
     is_mobile: bool
 
 
-class _UserRoleRow(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
-
-    role_id: UUID
-
-
-class _RoleSummaryRow(BaseModel):
+class _RoleWithPermissionRow(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
     id: UUID
     name: str
     description: str | None
+    permission_name: str | None
 
 
 @final
@@ -85,13 +79,6 @@ class SQLAlchemyUserReader(UserReader):
         if not mapping:
             return None
         row = _UserSummaryRow.model_validate(mapping)
-        two_fa: TwoFactorSecret | None = None
-        if row.two_factor_secret and row.two_factor_enabled_at:
-            two_fa = TwoFactorSecret(
-                secret=row.two_factor_secret,
-                backup_codes=tuple(row.two_factor_backup_codes or ()),
-                enabled_at=row.two_factor_enabled_at,
-            )
         lock_info = AccountLockInfo(is_locked=row.is_locked, lock_until=row.lock_until)
         return UserReadDTO(
             user_id=row.id,
@@ -99,7 +86,8 @@ class SQLAlchemyUserReader(UserReader):
             email=row.email,
             is_email_verified=row.is_email_verified,
             is_locked=lock_info.is_locked_out(),
-            two_factor_secret=two_fa,
+            # Only whether 2FA is on. A read model has no business carrying the seed.
+            has_two_factor=bool(row.two_factor_secret and row.two_factor_enabled_at),
         )
 
 
@@ -121,20 +109,22 @@ class SQLAlchemySessionReader(SessionReader):
         result: list[SessionReadDTO] = []
         for mapping in rows.mappings().all():
             row = _SessionSummaryRow.model_validate(mapping)
-            result.append(SessionReadDTO(
-                session_id=row.session_id,
-                created_at=row.created_at,
-                expires_at=row.expires_at,
-                is_revoked=row.is_revoked,
-                device_info=DeviceInfo(
-                    user_agent=row.user_agent,
-                    ip_address=row.ip_address,
-                    device_name=row.device_name,
-                    browser=row.browser,
-                    os=row.os,
-                    is_mobile=row.is_mobile,
-                ),
-            ))
+            result.append(
+                SessionReadDTO(
+                    session_id=row.session_id,
+                    created_at=row.created_at,
+                    expires_at=row.expires_at,
+                    is_revoked=row.is_revoked,
+                    device_info=DeviceInfo(
+                        user_agent=row.user_agent,
+                        ip_address=row.ip_address,
+                        device_name=row.device_name,
+                        browser=row.browser,
+                        os=row.os,
+                        is_mobile=row.is_mobile,
+                    ),
+                )
+            )
         return result
 
 
@@ -145,52 +135,68 @@ class SQLAlchemyRoleReader(RoleReader):
 
     @override
     async def get_user_roles(self, user_id: UserID) -> list[RoleReadDTO]:
-        user_roles = await self._session.execute(
-            select(USER_ROLES_TABLE).where(
-                USER_ROLES_TABLE.c.user_id == user_id.to_raw()
-            )
+        # One query, not 1 + 2N. This runs on every admin request through `require_admin`,
+        # so the loop it replaces was the single hottest N+1 in the service.
+        return await self._roles_with_permissions(
+            ROLES_TABLE.join(
+                USER_ROLES_TABLE,
+                USER_ROLES_TABLE.c.role_id == ROLES_TABLE.c.id,
+            ),
+            USER_ROLES_TABLE.c.user_id == user_id.to_raw(),
         )
-        roles: list[RoleReadDTO] = []
-        for ur_mapping in user_roles.mappings().all():
-            ur = _UserRoleRow.model_validate(ur_mapping)
-            role_result = await self._session.execute(
-                select(ROLES_TABLE).where(ROLES_TABLE.c.id == ur.role_id)
-            )
-            role_mapping = role_result.mappings().first()
-            if not role_mapping:
-                continue
-            role_row = _RoleSummaryRow.model_validate(role_mapping)
-            perms = await self._get_role_permissions(str(role_row.id))
-            roles.append(RoleReadDTO(
-                role_id=role_row.id,
-                name=role_row.name,
-                description=role_row.description,
-                permissions=perms,
-            ))
-        return roles
 
     @override
     async def get_all_roles(self) -> list[RoleReadDTO]:
-        rows = await self._session.execute(select(ROLES_TABLE))
-        roles: list[RoleReadDTO] = []
-        for mapping in rows.mappings().all():
-            row = _RoleSummaryRow.model_validate(mapping)
-            perms = await self._get_role_permissions(str(row.id))
-            roles.append(RoleReadDTO(
-                role_id=row.id,
-                name=row.name,
-                description=row.description,
-                permissions=perms,
-            ))
-        return roles
+        return await self._roles_with_permissions(ROLES_TABLE, None)
 
-    async def _get_role_permissions(self, role_id: str) -> tuple[str, ...]:
-        result = await self._session.execute(
-            select(PERMISSION_NAME_COLUMN)
-            .select_from(PERMISSIONS_TABLE.join(
-                ROLE_PERMISSIONS_TABLE,
-                PERMISSIONS_TABLE.c.id == ROLE_PERMISSIONS_TABLE.c.permission_id,
-            ))
-            .where(ROLE_PERMISSIONS_TABLE.c.role_id == role_id)
+    async def _roles_with_permissions(
+        self,
+        source: FromClause,
+        condition: ColumnElement[bool] | None,
+    ) -> list[RoleReadDTO]:
+        statement = (
+            select(
+                ROLES_TABLE.c.id,
+                ROLES_TABLE.c.name,
+                ROLES_TABLE.c.description,
+                PERMISSION_NAME_COLUMN.label('permission_name'),
+            )
+            .select_from(
+                source.outerjoin(
+                    ROLE_PERMISSIONS_TABLE,
+                    ROLE_PERMISSIONS_TABLE.c.role_id == ROLES_TABLE.c.id,
+                ).outerjoin(
+                    PERMISSIONS_TABLE,
+                    PERMISSIONS_TABLE.c.id == ROLE_PERMISSIONS_TABLE.c.permission_id,
+                )
+            )
+            .order_by(ROLES_TABLE.c.name)
         )
-        return tuple(result.scalars().all())
+        if condition is not None:
+            statement = statement.where(condition)
+
+        rows = await self._session.execute(statement)
+        roles: dict[UUID, RoleReadDTO] = {}
+        permissions: dict[UUID, list[str]] = {}
+        for mapping in rows.mappings().all():
+            row = _RoleWithPermissionRow.model_validate(mapping)
+            if row.id not in roles:
+                roles[row.id] = RoleReadDTO(
+                    role_id=row.id,
+                    name=row.name,
+                    description=row.description,
+                    permissions=(),
+                )
+                permissions[row.id] = []
+            if row.permission_name is not None:
+                permissions[row.id].append(row.permission_name)
+
+        return [
+            RoleReadDTO(
+                role_id=role.role_id,
+                name=role.name,
+                description=role.description,
+                permissions=tuple(permissions[role.role_id]),
+            )
+            for role in roles.values()
+        ]

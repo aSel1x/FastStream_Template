@@ -13,7 +13,7 @@ class EmailConfig:
     app_base_url: str = 'http://localhost:8000'
 
     @classmethod
-    def from_environ(cls) -> 'EmailConfig':
+    def from_environ(cls) -> EmailConfig:
         return cls(
             host=getenv('SMTP_HOST', 'localhost'),
             port=int(getenv('SMTP_PORT', '587')),

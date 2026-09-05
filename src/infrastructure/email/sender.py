@@ -1,5 +1,5 @@
-from typing import final, override
 from abc import ABC, abstractmethod
+from typing import final, override
 
 from infrastructure.email.config import EmailConfig
 
@@ -16,8 +16,9 @@ class SMTPSender(EmailSenderInterface):
 
     @override
     async def send(self, to: str, subject: str, body: str) -> None:
-        import aiosmtplib
         from email.message import EmailMessage
+
+        import aiosmtplib
 
         msg = EmailMessage()
         msg['From'] = self._config.from_addr

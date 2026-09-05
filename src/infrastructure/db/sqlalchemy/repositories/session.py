@@ -4,14 +4,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from domain.user.entities.session import SessionAggregate, RefreshToken, DeviceInfo
+from domain.user.entities.session import DeviceInfo, RefreshToken, SessionAggregate
 from domain.user.interfaces import SessionRepositoryInterface
 from domain.user.value_objects import TokenHash, UserID
-from infrastructure.db.sqlalchemy.models.session import SESSIONS_TABLE, REFRESH_TOKENS_TABLE
+from infrastructure.db.sqlalchemy.models.session import REFRESH_TOKENS_TABLE, SESSIONS_TABLE
 from infrastructure.db.sqlalchemy.repositories.base import SQLAlchemyRepo
-
+from sqlalchemy import and_, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
 
 class _SessionRow(BaseModel):
@@ -52,7 +53,9 @@ def _device_info_from_row(row: _SessionRow) -> DeviceInfo:
     )
 
 
-def _session_from_rows(row: _SessionRow, refresh_tokens: tuple[RefreshToken, ...]) -> SessionAggregate:
+def _session_from_rows(
+    row: _SessionRow, refresh_tokens: tuple[RefreshToken, ...]
+) -> SessionAggregate:
     return SessionAggregate(
         session_id=row.session_id,
         user_id=UserID(row.user_id),
@@ -90,9 +93,7 @@ class SQLAlchemySessionRepo(SQLAlchemyRepo, SessionRepositoryInterface):
         row = _SessionRow.model_validate(mapping)
 
         tokens = await self._session.execute(
-            select(REFRESH_TOKENS_TABLE).where(
-                REFRESH_TOKENS_TABLE.c.session_id == session_id
-            )
+            select(REFRESH_TOKENS_TABLE).where(REFRESH_TOKENS_TABLE.c.session_id == session_id)
         )
         refresh_tokens = tuple(
             _refresh_token_from_row(_RefreshTokenRow.model_validate(token_mapping))
@@ -111,36 +112,60 @@ class SQLAlchemySessionRepo(SQLAlchemyRepo, SessionRepositoryInterface):
                 )
             )
         )
-        return [
-            _session_from_rows(_SessionRow.model_validate(mapping), ())
-            for mapping in result.mappings().all()
-        ]
+        rows = [_SessionRow.model_validate(mapping) for mapping in result.mappings().all()]
+        if not rows:
+            return []
+
+        # Load the tokens too. Building these aggregates with an empty token tuple meant
+        # `session.revoke()` mapped over nothing, and revoking every session left every
+        # refresh_tokens row un-revoked in the database.
+        tokens_by_session = await self._refresh_tokens_for(
+            [row.session_id for row in rows],
+        )
+        return [_session_from_rows(row, tokens_by_session.get(row.session_id, ())) for row in rows]
+
+    async def _refresh_tokens_for(
+        self, session_ids: list[UUID]
+    ) -> dict[UUID, tuple[RefreshToken, ...]]:
+        """One query for the whole batch, grouped in Python — not one query per session."""
+        result = await self._session.execute(
+            select(REFRESH_TOKENS_TABLE).where(REFRESH_TOKENS_TABLE.c.session_id.in_(session_ids))
+        )
+        grouped: dict[UUID, list[RefreshToken]] = {}
+        for mapping in result.mappings().all():
+            row = _RefreshTokenRow.model_validate(mapping)
+            grouped.setdefault(row.session_id, []).append(_refresh_token_from_row(row))
+        return {session_id: tuple(tokens) for session_id, tokens in grouped.items()}
 
     @override
     async def add(self, session: SessionAggregate) -> None:
-        _ = await self._session.execute(SESSIONS_TABLE.insert().values(
-            session_id=session.session_id,
-            user_id=session.user_id.to_raw(),
-            user_agent=session.device_info.user_agent,
-            ip_address=session.device_info.ip_address,
-            device_name=session.device_info.device_name,
-            browser=session.device_info.browser,
-            os=session.device_info.os,
-            is_mobile=session.device_info.is_mobile,
-            created_at=session.created_at,
-            expires_at=session.expires_at,
-            is_revoked=session.is_revoked,
-        ))
+        _ = await self._session.execute(
+            SESSIONS_TABLE.insert().values(
+                session_id=session.session_id,
+                user_id=session.user_id.to_raw(),
+                user_agent=session.device_info.user_agent,
+                ip_address=session.device_info.ip_address,
+                device_name=session.device_info.device_name,
+                browser=session.device_info.browser,
+                os=session.device_info.os,
+                is_mobile=session.device_info.is_mobile,
+                created_at=session.created_at,
+                expires_at=session.expires_at,
+                is_revoked=session.is_revoked,
+            )
+        )
 
         for token in session.refresh_tokens:
-            _ = await self._session.execute(REFRESH_TOKENS_TABLE.insert().values(
-                id=token.id,
-                session_id=session.session_id,
-                token_hash=token.token_hash.to_raw(),
-                expires_at=token.expires_at,
-                is_revoked=token.is_revoked,
-                created_at=token.created_at,
-            ))
+            _ = await self._session.execute(
+                REFRESH_TOKENS_TABLE.insert().values(
+                    id=token.id,
+                    session_id=session.session_id,
+                    token_hash=token.token_hash.to_raw(),
+                    expires_at=token.expires_at,
+                    is_revoked=token.is_revoked,
+                    created_at=token.created_at,
+                )
+            )
 
         await self._session.flush()
 
@@ -155,12 +180,26 @@ class SQLAlchemySessionRepo(SQLAlchemyRepo, SessionRepositoryInterface):
             )
         )
 
+        # Upsert, not update: refresh-token rotation adds a token on every refresh, and an
+        # UPDATE-only path silently dropped it — the caller got a token the database had
+        # never heard of.
         for token in session.refresh_tokens:
-            _ = await self._session.execute(
-                REFRESH_TOKENS_TABLE.update()
-                .where(REFRESH_TOKENS_TABLE.c.id == token.id)
-                .values(is_revoked=token.is_revoked)
+            statement = (
+                insert(REFRESH_TOKENS_TABLE)
+                .values(
+                    id=token.id,
+                    session_id=session.session_id,
+                    token_hash=token.token_hash.to_raw(),
+                    expires_at=token.expires_at,
+                    is_revoked=token.is_revoked,
+                    created_at=token.created_at,
+                )
+                .on_conflict_do_update(
+                    index_elements=[REFRESH_TOKENS_TABLE.c.id],
+                    set_={'is_revoked': token.is_revoked, 'expires_at': token.expires_at},
+                )
             )
+            _ = await self._session.execute(statement)
         await self._session.flush()
 
     @override
@@ -175,10 +214,20 @@ class SQLAlchemySessionRepo(SQLAlchemyRepo, SessionRepositoryInterface):
 
     @override
     async def delete_by_user_id(self, user_id: UserID) -> None:
+        # refresh_tokens.session_id cascades, so deleting the sessions removes the tokens.
         _ = await self._session.execute(
             SESSIONS_TABLE.delete().where(SESSIONS_TABLE.c.user_id == user_id.to_raw())
         )
         await self._session.flush()
+
+    @override
+    async def delete_expired(self, before: datetime) -> int:
+        """Drop sessions that expired before `before`. Nothing else ever removes them."""
+        result = await self._session.execute(
+            SESSIONS_TABLE.delete().where(SESSIONS_TABLE.c.expires_at < before)
+        )
+        await self._session.flush()
+        return result.rowcount if isinstance(result, CursorResult) else 0
 
     @override
     async def acquire_by_token_hash(self, token_hash: bytes) -> SessionAggregate | None:

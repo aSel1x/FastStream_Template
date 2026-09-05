@@ -11,7 +11,7 @@ from domain.common.value_object import BaseValueObject
 from domain.user.events import RoleCreatedEvent, RoleDeletedEvent, RoleUpdatedEvent
 from domain.user.value_objects import RoleID, RoleName, UserID
 
-PERMISSION_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_:.-]{1,63}$")
+PERMISSION_NAME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9_:.-]{1,63}$')
 
 
 @dataclass(eq=False)
@@ -67,9 +67,9 @@ class Role(DomainEventDispatcher, BaseEntity):
     def add_permission(self, permission: Permission) -> Self:
         if self.has_permission(permission.name):
             return self
-        role = self._with(permissions=self.permissions + (permission,))
+        role = self._with(permissions=(*self.permissions, permission))
         role._record_event(
-            RoleUpdatedEvent(role_id=self.role_id.to_raw(), updated_fields=("permissions",))
+            RoleUpdatedEvent(role_id=self.role_id.to_raw(), updated_fields=('permissions',))
         )
         return role
 
@@ -78,7 +78,7 @@ class Role(DomainEventDispatcher, BaseEntity):
         role = self._with(permissions=new_permissions)
         if len(new_permissions) != len(self.permissions):
             role._record_event(
-                RoleUpdatedEvent(role_id=self.role_id.to_raw(), updated_fields=("permissions",))
+                RoleUpdatedEvent(role_id=self.role_id.to_raw(), updated_fields=('permissions',))
             )
         return role
 
@@ -86,11 +86,11 @@ class Role(DomainEventDispatcher, BaseEntity):
         updated_fields: list[str] = []
         changes: dict[str, object] = {}
         if name is not None and name.to_raw() != self.name.to_raw():
-            changes["name"] = name
-            updated_fields.append("name")
+            changes['name'] = name
+            updated_fields.append('name')
         if description is not None and description != self.description:
-            changes["description"] = description
-            updated_fields.append("description")
+            changes['description'] = description
+            updated_fields.append('description')
         if not updated_fields:
             return self
         role = self._with(**changes)

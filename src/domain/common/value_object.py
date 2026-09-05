@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, TypeVar
 
 
 @dataclass(frozen=True)
@@ -13,11 +12,8 @@ class BaseValueObject(ABC):
         pass
 
 
-V = TypeVar('V')
-
-
 @dataclass(frozen=True)
-class ValueObject(BaseValueObject, ABC, Generic[V]):
+class ValueObject[V](BaseValueObject, ABC):
     value: V
 
     def to_raw(self) -> V:

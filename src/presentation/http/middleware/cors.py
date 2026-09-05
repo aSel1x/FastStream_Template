@@ -1,4 +1,5 @@
 from typing import final
+
 from litestar.config.cors import CORSConfig
 
 
@@ -6,9 +7,9 @@ class AppCORSConfig:
     @classmethod
     def default(cls) -> CORSConfig:
         return CORSConfig(
-            allow_origins=["http://localhost:3000", "http://localhost:8080"],
-            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["*"],
+            allow_origins=['http://localhost:3000', 'http://localhost:8080'],
+            allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allow_headers=['*'],
             allow_credentials=True,
             max_age=3600,
         )
@@ -21,8 +22,8 @@ class AppCORSConfig:
             )
         return CORSConfig(
             allow_origins=allowed_origins,
-            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["*"],
+            allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allow_headers=['*'],
             allow_credentials=True,
             max_age=3600,
         )

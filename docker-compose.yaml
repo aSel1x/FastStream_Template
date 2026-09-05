@@ -124,11 +124,38 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       hydra:
         condition: service_healthy
+      maintenance_worker:
+    build:
+      context: .
+      target: dev
+    container_name: app.maintenance_worker
+    image: app
+    env_file:
+      - .env
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port.
+    environment:
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
       postgres_migration:
+        condition: service_completed_successfully
+    # Prunes expired sessions, processed outbox rows, old audit entries and long
+    # soft-deleted accounts. Nothing else in the stack ever deletes anything.
+    command: ["python", "-m", "infrastructure.maintenance.worker"]
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
+  postgres_migration:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
@@ -136,6 +163,7 @@ services:
       - "./src:/src"
     networks:
       - shared
+    restart: unless-stopped
 
   queue:
     build:
@@ -146,8 +174,37 @@ services:
     env_file:
       - .env
     depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      maintenance_worker:
+    build:
+      context: .
+      target: dev
+    container_name: app.maintenance_worker
+    image: app
+    env_file:
+      - .env
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port.
+    environment:
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres_migration:
+        condition: service_completed_successfully
+    # Prunes expired sessions, processed outbox rows, old audit entries and long
+    # soft-deleted accounts. Nothing else in the stack ever deletes anything.
+    command: ["python", "-m", "infrastructure.maintenance.worker"]
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
+  postgres_migration:
+        condition: service_completed_successfully
     command: ["faststream", "run", "presentation.amqp.app:app", "--workers", "1"]
     volumes:
       - "./src:/src"
@@ -172,9 +229,59 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      maintenance_worker:
+    build:
+      context: .
+      target: dev
+    container_name: app.maintenance_worker
+    image: app
+    env_file:
+      - .env
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port.
+    environment:
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
       postgres_migration:
         condition: service_completed_successfully
+    # Prunes expired sessions, processed outbox rows, old audit entries and long
+    # soft-deleted accounts. Nothing else in the stack ever deletes anything.
+    command: ["python", "-m", "infrastructure.maintenance.worker"]
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
+  postgres_migration:
+        condition: service_completed_successfully
     command: ["python", "-m", "infrastructure.queue.outbox_worker"]
+    volumes:
+      - "./src:/src"
+    networks:
+      - shared
+    restart: unless-stopped
+
+  maintenance_worker:
+    build:
+      context: .
+      target: dev
+    container_name: app.maintenance_worker
+    image: app
+    env_file:
+      - .env
+    # See the "api" service above: POSTGRES_PORT in .env is the host-exposed port.
+    environment:
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres_migration:
+        condition: service_completed_successfully
+    # Prunes expired sessions, processed outbox rows, old audit entries and long
+    # soft-deleted accounts. Nothing else in the stack ever deletes anything.
+    command: ["python", "-m", "infrastructure.maintenance.worker"]
     volumes:
       - "./src:/src"
     networks:

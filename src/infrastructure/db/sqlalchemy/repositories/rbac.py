@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import ClassVar, final, override
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,15 +14,13 @@ from domain.user.value_objects import RoleID, RoleName, UserID
 from infrastructure.db.sqlalchemy.models.rbac import (
     PERMISSION_ID_COLUMN,
     PERMISSIONS_TABLE,
-    ROLES_TABLE,
     ROLE_PERMISSIONS_TABLE,
+    ROLES_TABLE,
     USER_ROLES_TABLE,
 )
 from infrastructure.db.sqlalchemy.repositories.base import SQLAlchemyRepo
-
-from uuid import UUID, uuid4
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
 
 class _PermissionRow(BaseModel):
@@ -78,11 +77,13 @@ class SQLAlchemyPermissionRepo(SQLAlchemyRepo, PermissionRepositoryInterface):
 
     @override
     async def add(self, permission: Permission) -> None:
-        _ = await self._session.execute(PERMISSIONS_TABLE.insert().values(
-            id=uuid4(),
-            name=permission.name,
-            description=permission.description,
-        ))
+        _ = await self._session.execute(
+            PERMISSIONS_TABLE.insert().values(
+                id=uuid4(),
+                name=permission.name,
+                description=permission.description,
+            )
+        )
         await self._session.flush()
 
 
@@ -136,32 +137,38 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
         for mapping in result.mappings().all():
             row = _RoleRow.model_validate(mapping)
             permissions = await self._get_role_permissions(row.id)
-            roles.append(Role(
-                role_id=RoleID(row.id),
-                name=RoleName(row.name),
-                description=row.description,
-                permissions=tuple(permissions),
-            ))
+            roles.append(
+                Role(
+                    role_id=RoleID(row.id),
+                    name=RoleName(row.name),
+                    description=row.description,
+                    permissions=tuple(permissions),
+                )
+            )
         return roles
 
     @override
     async def add(self, role: Role) -> None:
-        _ = await self._session.execute(ROLES_TABLE.insert().values(
-            id=role.role_id.to_raw(),
-            name=role.name.to_raw(),
-            description=role.description,
-        ))
+        _ = await self._session.execute(
+            ROLES_TABLE.insert().values(
+                id=role.role_id.to_raw(),
+                name=role.name.to_raw(),
+                description=role.description,
+            )
+        )
 
         for perm in role.permissions:
             perm_exists = await self._session.scalar(
                 select(PERMISSION_ID_COLUMN).where(PERMISSIONS_TABLE.c.name == perm.name)
             )
             if not perm_exists:
-                _ = await self._session.execute(PERMISSIONS_TABLE.insert().values(
-                    id=uuid4(),
-                    name=perm.name,
-                    description=perm.description,
-                ))
+                _ = await self._session.execute(
+                    PERMISSIONS_TABLE.insert().values(
+                        id=uuid4(),
+                        name=perm.name,
+                        description=perm.description,
+                    )
+                )
 
             perm_result = await self._session.execute(
                 select(PERMISSIONS_TABLE).where(PERMISSIONS_TABLE.c.name == perm.name)
@@ -169,10 +176,12 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
             perm_mapping = perm_result.mappings().first()
             if perm_mapping:
                 perm_row = _PermissionRow.model_validate(perm_mapping)
-                _ = await self._session.execute(ROLE_PERMISSIONS_TABLE.insert().values(
-                    role_id=role.role_id.to_raw(),
-                    permission_id=perm_row.id,
-                ))
+                _ = await self._session.execute(
+                    ROLE_PERMISSIONS_TABLE.insert().values(
+                        role_id=role.role_id.to_raw(),
+                        permission_id=perm_row.id,
+                    )
+                )
 
         await self._session.flush()
 
@@ -186,11 +195,13 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
 
         role_id_raw = role.role_id.to_raw()
         current_ids = set(
-            (await self._session.scalars(
-                select(ROLE_PERMISSIONS_TABLE.c.permission_id).where(
-                    ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw
+            (
+                await self._session.scalars(
+                    select(ROLE_PERMISSIONS_TABLE.c.permission_id).where(
+                        ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw
+                    )
                 )
-            )).all()
+            ).all()
         )
 
         desired_ids: set[UUID] = set()
@@ -200,23 +211,32 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
             )
             if perm_id is None:
                 perm_id = uuid4()
-                _ = await self._session.execute(PERMISSIONS_TABLE.insert().values(
-                    id=perm_id, name=perm.name, description=perm.description,
-                ))
+                _ = await self._session.execute(
+                    PERMISSIONS_TABLE.insert().values(
+                        id=perm_id,
+                        name=perm.name,
+                        description=perm.description,
+                    )
+                )
             desired_ids.add(perm_id)
 
         to_remove = current_ids - desired_ids
         if to_remove:
             _ = await self._session.execute(
-                ROLE_PERMISSIONS_TABLE.delete().where(and_(
-                    ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw,
-                    ROLE_PERMISSIONS_TABLE.c.permission_id.in_(to_remove),
-                ))
+                ROLE_PERMISSIONS_TABLE.delete().where(
+                    and_(
+                        ROLE_PERMISSIONS_TABLE.c.role_id == role_id_raw,
+                        ROLE_PERMISSIONS_TABLE.c.permission_id.in_(to_remove),
+                    )
+                )
             )
         for perm_id in desired_ids - current_ids:
-            _ = await self._session.execute(ROLE_PERMISSIONS_TABLE.insert().values(
-                role_id=role_id_raw, permission_id=perm_id,
-            ))
+            _ = await self._session.execute(
+                ROLE_PERMISSIONS_TABLE.insert().values(
+                    role_id=role_id_raw,
+                    permission_id=perm_id,
+                )
+            )
 
         await self._session.flush()
 
@@ -229,18 +249,18 @@ class SQLAlchemyRoleRepo(SQLAlchemyRepo, RoleRepositoryInterface):
         _ = await self._session.execute(
             USER_ROLES_TABLE.delete().where(USER_ROLES_TABLE.c.role_id == role_id_raw)
         )
-        _ = await self._session.execute(
-            ROLES_TABLE.delete().where(ROLES_TABLE.c.id == role_id_raw)
-        )
+        _ = await self._session.execute(ROLES_TABLE.delete().where(ROLES_TABLE.c.id == role_id_raw))
         await self._session.flush()
 
     async def _get_role_permissions(self, role_id: UUID) -> list[Permission]:
         result = await self._session.execute(
             select(PERMISSIONS_TABLE)
-            .select_from(PERMISSIONS_TABLE.join(
-                ROLE_PERMISSIONS_TABLE,
-                PERMISSIONS_TABLE.c.id == ROLE_PERMISSIONS_TABLE.c.permission_id
-            ))
+            .select_from(
+                PERMISSIONS_TABLE.join(
+                    ROLE_PERMISSIONS_TABLE,
+                    PERMISSIONS_TABLE.c.id == ROLE_PERMISSIONS_TABLE.c.permission_id,
+                )
+            )
             .where(ROLE_PERMISSIONS_TABLE.c.role_id == role_id)
         )
         return [
@@ -270,9 +290,7 @@ class SQLAlchemyUserRoleRepo(SQLAlchemyRepo, UserRoleRepositoryInterface):
         ]
 
     @override
-    async def acquire_by_user_and_role(
-        self, user_id: UserID, role_id: RoleID
-    ) -> UserRole | None:
+    async def acquire_by_user_and_role(self, user_id: UserID, role_id: RoleID) -> UserRole | None:
         result = await self._session.execute(
             select(USER_ROLES_TABLE).where(
                 and_(
@@ -294,12 +312,14 @@ class SQLAlchemyUserRoleRepo(SQLAlchemyRepo, UserRoleRepositoryInterface):
 
     @override
     async def add(self, user_role: UserRole) -> None:
-        _ = await self._session.execute(USER_ROLES_TABLE.insert().values(
-            user_id=user_role.user_id.to_raw(),
-            role_id=user_role.role_id.to_raw(),
-            assigned_at=user_role.assigned_at,
-            assigned_by=user_role.assigned_by.to_raw() if user_role.assigned_by else None,
-        ))
+        _ = await self._session.execute(
+            USER_ROLES_TABLE.insert().values(
+                user_id=user_role.user_id.to_raw(),
+                role_id=user_role.role_id.to_raw(),
+                assigned_at=user_role.assigned_at,
+                assigned_by=user_role.assigned_by.to_raw() if user_role.assigned_by else None,
+            )
+        )
         await self._session.flush()
 
     @override

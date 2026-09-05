@@ -13,4 +13,8 @@ class HydraChallengeGoneError(HydraAdminError):
 
 
 class HydraClientNotFoundError(HydraAdminError):
-    pass
+    """Hydra has no such OAuth2 client.
+
+    Translated to the port's `ProviderClientNotFoundError` at the adapter boundary, so a use
+    case never has to know which authorization server is behind the port.
+    """

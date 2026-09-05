@@ -3,22 +3,36 @@ from unittest.mock import AsyncMock
 import pytest
 
 from application.common.exceptions import OAuthClientNotFoundError
-from application.hydra_clients.commands.create_client import CreateOAuthClientInput, CreateOAuthClientUseCase
+from application.common.interfaces.acl.hydra_admin import ProviderClientNotFoundError
+from application.hydra_clients.commands.create_client import (
+    CreateOAuthClientInput,
+    CreateOAuthClientUseCase,
+)
 from application.hydra_clients.commands.delete_client import DeleteOAuthClientUseCase
 from application.hydra_clients.commands.rotate_client_secret import RotateClientSecretUseCase
 from application.hydra_clients.queries.list_clients import ListOAuthClientsUseCase
-from infrastructure.hydra.exceptions import HydraClientNotFoundError
 from infrastructure.hydra.schemas import HydraClient
 
 
-def _make_client(**overrides) -> HydraClient:
-    defaults = dict(
-        client_id='client-1', client_name='App', client_secret='shh', client_uri=None,
-        redirect_uris=['http://app/cb'], grant_types=['authorization_code'], response_types=['code'],
-        scope=['openid', 'profile'], token_endpoint_auth_method='client_secret_basic', created_at=None,
+def _make_client(
+    *,
+    client_id: str = 'client-1',
+    client_name: str = 'App',
+    client_secret: str | None = 'shh',  # noqa: S107 - a fixture value, not a secret
+    auth_method: str = 'client_secret_basic',
+) -> HydraClient:
+    return HydraClient(
+        client_id=client_id,
+        client_name=client_name,
+        client_secret=client_secret,
+        client_uri=None,
+        redirect_uris=['http://app/cb'],
+        grant_types=['authorization_code'],
+        response_types=['code'],
+        scope=['openid', 'profile'],
+        token_endpoint_auth_method=auth_method,
+        created_at=None,
     )
-    defaults.update(overrides)
-    return HydraClient(**defaults)
 
 
 class TestCreateOAuthClientUseCase:
@@ -28,10 +42,15 @@ class TestCreateOAuthClientUseCase:
         hydra_client.create_client = AsyncMock(return_value=_make_client())
 
         use_case = CreateOAuthClientUseCase(hydra_client)
-        result = await use_case(CreateOAuthClientInput(
-            client_name='App', redirect_uris=['http://app/cb'], grant_types=['authorization_code'],
-            scopes=['openid', 'profile'], is_confidential=True,
-        ))
+        result = await use_case(
+            CreateOAuthClientInput(
+                client_name='App',
+                redirect_uris=['http://app/cb'],
+                grant_types=['authorization_code'],
+                scopes=['openid', 'profile'],
+                is_confidential=True,
+            )
+        )
 
         call_arg = hydra_client.create_client.await_args.args[0]
         assert call_arg.token_endpoint_auth_method == 'client_secret_basic'
@@ -43,14 +62,19 @@ class TestCreateOAuthClientUseCase:
     async def test_public_client_maps_to_none_auth_method(self):
         hydra_client = AsyncMock()
         hydra_client.create_client = AsyncMock(
-            return_value=_make_client(client_secret=None, token_endpoint_auth_method='none'),
+            return_value=_make_client(client_secret=None, auth_method='none'),
         )
 
         use_case = CreateOAuthClientUseCase(hydra_client)
-        result = await use_case(CreateOAuthClientInput(
-            client_name='App', redirect_uris=[], grant_types=['authorization_code'],
-            scopes=['openid'], is_confidential=False,
-        ))
+        result = await use_case(
+            CreateOAuthClientInput(
+                client_name='App',
+                redirect_uris=[],
+                grant_types=['authorization_code'],
+                scopes=['openid'],
+                is_confidential=False,
+            )
+        )
 
         call_arg = hydra_client.create_client.await_args.args[0]
         assert call_arg.token_endpoint_auth_method == 'none'
@@ -71,7 +95,7 @@ class TestDeleteOAuthClientUseCase:
     @pytest.mark.asyncio
     async def test_translates_not_found(self):
         hydra_client = AsyncMock()
-        hydra_client.delete_client = AsyncMock(side_effect=HydraClientNotFoundError(404, 'not found'))
+        hydra_client.delete_client = AsyncMock(side_effect=ProviderClientNotFoundError('not found'))
 
         use_case = DeleteOAuthClientUseCase(hydra_client)
 
@@ -83,7 +107,9 @@ class TestRotateClientSecretUseCase:
     @pytest.mark.asyncio
     async def test_rotates_secret(self):
         hydra_client = AsyncMock()
-        hydra_client.rotate_client_secret = AsyncMock(return_value=_make_client(client_secret='new-secret'))
+        hydra_client.rotate_client_secret = AsyncMock(
+            return_value=_make_client(client_secret='new-secret')
+        )
 
         use_case = RotateClientSecretUseCase(hydra_client)
         result = await use_case('client-1')
@@ -93,7 +119,9 @@ class TestRotateClientSecretUseCase:
     @pytest.mark.asyncio
     async def test_translates_not_found(self):
         hydra_client = AsyncMock()
-        hydra_client.rotate_client_secret = AsyncMock(side_effect=HydraClientNotFoundError(404, 'not found'))
+        hydra_client.rotate_client_secret = AsyncMock(
+            side_effect=ProviderClientNotFoundError('not found')
+        )
 
         use_case = RotateClientSecretUseCase(hydra_client)
 
@@ -105,7 +133,9 @@ class TestListOAuthClientsUseCase:
     @pytest.mark.asyncio
     async def test_lists_and_maps_clients(self):
         hydra_client = AsyncMock()
-        hydra_client.list_clients = AsyncMock(return_value=[_make_client(), _make_client(client_id='client-2')])
+        hydra_client.list_clients = AsyncMock(
+            return_value=[_make_client(), _make_client(client_id='client-2')]
+        )
 
         use_case = ListOAuthClientsUseCase(hydra_client)
         result = await use_case()

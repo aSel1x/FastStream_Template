@@ -2,11 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ddd]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  lint:
+    name: Lint & format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +25,125 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --frozen --group dev
 
-      - name: Lint (ruff)
-        run: uv run ruff check .
+      - run: uv run ruff check --output-format=github .
+      - run: uv run ruff format --check .
 
-      - name: Type check (basedpyright)
-        run: uv run basedpyright
+      # The README's central architectural claim, checked rather than asserted.
+      - name: Dependency rule (import-linter)
+        run: uv run lint-imports
 
-      - name: Test (pytest)
-        run: uv run pytest tests
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - run: uv run basedpyright
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Run tests with coverage
+        run: uv run pytest tests --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: warn
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Export locked dependencies
+        run: uv export --frozen --no-dev --no-emit-project -o requirements.txt
+
+      - name: Audit for known vulnerabilities
+        run: uvx pip-audit --requirement requirements.txt --strict
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          push: false
+          load: true
+          tags: backend-template:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  migrations:
+    name: Migrations match models
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_template
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: backend_template
+      POSTGRES_ECHO: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Apply migrations
+        run: uv run alembic -c alembic.ini upgrade head
+
+      - name: Fail if the models have drifted from the migrations
+        run: uv run alembic -c alembic.ini check

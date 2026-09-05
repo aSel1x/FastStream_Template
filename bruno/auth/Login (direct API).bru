@@ -17,9 +17,21 @@ body:json {
   }
 }
 
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200) {
+    if (body.refresh_token) bru.setEnvVar("refresh_token", body.refresh_token);
+    if (body.challenge_token) bru.setEnvVar("challenge_token", body.challenge_token);
+  }
+}
+
 docs {
-  Public, credential-check only — for native/mobile clients. Returns this service's own
-  `session_id` / `refresh_token`, **not** a Bearer token usable on any other request in
-  this collection. Everything else here is authorized through a real Hydra-issued OAuth2
-  token — go through `oidc/1` and `oidc/2` instead.
+  Public, credential-check only — for native and mobile clients. Returns this service's own
+  `session_id` / `refresh_token`, **not** a Bearer token usable on any other request in this
+  collection. Everything else here is authorized through a real Hydra-issued OAuth2 token —
+  go through `oidc/1` and `oidc/2` instead.
+
+  **If the account has 2FA enabled** the response carries only `requires_two_factor: true` and
+  a `challenge_token`, with no session and no refresh token. Exchange it for a session at
+  `2fa/Complete Challenge`. A correct password alone gets you nothing.
 }

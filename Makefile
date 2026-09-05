@@ -1,3 +1,7 @@
+# Docker Compose V1 (`docker-compose`) has been EOL since July 2023 and ships with nothing
+# current. Override if you are still on it: `make COMPOSE=docker-compose build`.
+COMPOSE ?= docker compose
+
 .PHONY: help
 help:
 	@echo "USAGE"
@@ -16,6 +20,15 @@ help:
 	@echo "  logs-hydra       Show Ory Hydra logs"
 	@echo "  rabbitmq-ui      Open RabbitMQ management UI"
 	@echo "  migration        Create alembic database migration"
+	@echo "  migrate          Apply migrations up to head"
+	@echo ""
+	@echo "  test             Run the test suite"
+	@echo "  cov              Run the test suite with a coverage report"
+	@echo "  lint             Lint with ruff"
+	@echo "  format           Format with ruff"
+	@echo "  typecheck        Type-check with basedpyright"
+	@echo "  layers           Check the dependency rule with import-linter"
+	@echo "  check            lint + format check + typecheck + test (what CI runs)"
 
 
 export PYTHONPATH=src
@@ -27,43 +40,43 @@ endif
 
 .PHONY: build
 build:
-	docker-compose up -d --build
+	$(COMPOSE) up -d --build
 
 .PHONY: start
 start:
-	docker-compose start
+	$(COMPOSE) start
 
 .PHONY: restart
 restart:
-	docker-compose stop && docker-compose start
+	$(COMPOSE) stop && $(COMPOSE) start
 
 .PHONY: stop
 stop:
-	docker-compose stop
+	$(COMPOSE) stop
 
 .PHONY: logs-api
 logs-api:
-	docker-compose logs -f api
+	$(COMPOSE) logs -f api
 
 .PHONY: logs-queue
 logs-queue:
-	docker-compose logs -f queue
+	$(COMPOSE) logs -f queue
 
 .PHONY: logs-outbox
 logs-outbox:
-	docker-compose logs -f outbox_worker
+	$(COMPOSE) logs -f outbox_worker
 
 .PHONY: logs-rabbitmq
 logs-rabbitmq:
-	docker-compose logs -f rabbitmq
+	$(COMPOSE) logs -f rabbitmq
 
 .PHONY: logs-redis
 logs-redis:
-	docker-compose logs -f redis
+	$(COMPOSE) logs -f redis
 
 .PHONY: logs-hydra
 logs-hydra:
-	docker-compose logs -f hydra
+	$(COMPOSE) logs -f hydra
 
 .PHONY: rabbitmq-ui
 rabbitmq-ui:
@@ -74,3 +87,40 @@ rabbitmq-ui:
 .PHONY: migration
 migration:
 	POSTGRES_HOST=localhost uv run alembic -c alembic.ini revision --autogenerate
+
+.PHONY: migrate
+migrate:
+	POSTGRES_HOST=localhost uv run alembic -c alembic.ini upgrade head
+
+.PHONY: test
+test:
+	uv run pytest tests
+
+.PHONY: cov
+cov:
+	uv run pytest tests --cov --cov-report=term-missing
+
+.PHONY: lint
+lint:
+	uv run ruff check .
+
+.PHONY: format
+format:
+	uv run ruff format .
+	uv run ruff check --fix .
+
+.PHONY: typecheck
+typecheck:
+	uv run basedpyright
+
+.PHONY: layers
+layers:
+	uv run lint-imports
+
+.PHONY: check
+check:
+	uv run ruff check .
+	uv run ruff format --check .
+	uv run lint-imports
+	uv run basedpyright
+	uv run pytest tests

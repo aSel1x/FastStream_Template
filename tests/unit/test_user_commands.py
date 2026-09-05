@@ -5,11 +5,14 @@ from uuid import uuid4
 import pyotp
 import pytest
 
+from application.common.interfaces.system.rate_limiter import RateLimitResult
 from domain.user.entities.rbac import Permission, Role
 from domain.user.entities.session import DeviceInfo, SessionAggregate
 from domain.user.entities.user import User
 from domain.user.interfaces.persistence.readers import SessionReadDTO
 from domain.user.value_objects import (
+    AccountLockInfo,
+    DeletionTime,
     Email,
     HashedPassword,
     RoleName,
@@ -19,23 +22,52 @@ from domain.user.value_objects import (
 )
 
 
-def _make_user(**overrides: object) -> User:
-    defaults: dict[str, object] = dict(
-        id=UserID(uuid4()),
-        username=Username("testuser"),
-        email=Email("test@example.com"),
-        hashed_password=HashedPassword(b"hashed"),
+def _make_user(
+    *,
+    user_id: UserID | None = None,
+    username: Username | None = None,
+    email: Email | None = None,
+    hashed_password: HashedPassword | None = None,
+    two_factor_secret: TwoFactorSecret | None = None,
+    account_lock: AccountLockInfo | None = None,
+    deleted_at: DeletionTime | None = None,
+) -> User:
+    """A user built from typed pieces.
+
+    Explicit keywords rather than `**overrides: object`: the loose version silently accepted
+    a wrong type for any field and turned every call into an unchecked one.
+    """
+    return User(
+        id=user_id or UserID(uuid4()),
+        username=username or Username('testuser'),
+        email=email or Email('test@example.com'),
+        hashed_password=hashed_password or HashedPassword(b'hashed'),
+        two_factor_secret=two_factor_secret,
+        account_lock=account_lock or AccountLockInfo(),
+        deleted_at=deleted_at or DeletionTime.create_not_deleted(),
     )
-    defaults.update(overrides)
-    return User(**defaults)
 
 
 @pytest.fixture
 def mock_uow():
     uow = MagicMock()
-    uow.add_events = MagicMock()
     uow.commit = AsyncMock()
     return uow
+
+
+def _with_active_two_factor(user):
+    """Run a user through the full two-step enrolment."""
+    import pyotp
+
+    from infrastructure.two_factor import TwoFactorAuth
+
+    two_factor = TwoFactorAuth()
+    pending, codes = user.begin_two_factor_enrolment(two_factor)
+    assert pending.two_factor_secret is not None
+    enabled = pending.confirm_two_factor(
+        pyotp.TOTP(pending.two_factor_secret.secret).now(), two_factor
+    )
+    return enabled, codes
 
 
 class TestDeleteMeUseCase:
@@ -52,7 +84,6 @@ class TestDeleteMeUseCase:
         await use_case(user.id.to_raw())
 
         user_service.delete_user.assert_awaited_once_with(user.id)
-        mock_uow.add_events.assert_called_once()
         mock_uow.commit.assert_awaited_once()
 
 
@@ -74,7 +105,7 @@ class TestEnable2FAUseCase:
 
         assert result.secret
         assert len(result.backup_codes) == 10
-        assert "otpauth://" in result.provisioning_uri
+        assert 'otpauth://' in result.provisioning_uri
         user_service.update_user.assert_awaited_once()
         mock_uow.commit.assert_awaited_once()
 
@@ -83,9 +114,8 @@ class TestDisable2FAUseCase:
     @pytest.mark.asyncio
     async def test_disable_with_correct_password(self, mock_uow):
         from application.user.commands.manage_2fa import Disable2FAUseCase
-        from infrastructure.two_factor import TwoFactorAuth
 
-        user = _make_user().enable_two_factor(TwoFactorAuth())
+        user, _codes = _with_active_two_factor(_make_user())
         user_service = MagicMock()
         user_service.get_user_by_id = AsyncMock(return_value=user)
         user_service.update_user = AsyncMock()
@@ -93,7 +123,7 @@ class TestDisable2FAUseCase:
         crypt.compare_hashes = AsyncMock(return_value=True)
 
         use_case = Disable2FAUseCase(user_service=user_service, crypt=crypt, uow=mock_uow)
-        await use_case(user.id.to_raw(), "Correct@1234")
+        await use_case(user.id.to_raw(), 'Correct@1234')
 
         updated = user_service.update_user.await_args.args[0]
         assert updated.has_two_factor() is False
@@ -103,9 +133,8 @@ class TestDisable2FAUseCase:
     async def test_disable_with_wrong_password_raises(self, mock_uow):
         from application.user.commands.manage_2fa import Disable2FAUseCase
         from domain.user.exceptions import InvalidCredentialsError
-        from infrastructure.two_factor import TwoFactorAuth
 
-        user = _make_user().enable_two_factor(TwoFactorAuth())
+        user, _codes = _with_active_two_factor(_make_user())
         user_service = MagicMock()
         user_service.get_user_by_id = AsyncMock(return_value=user)
         crypt = AsyncMock()
@@ -114,7 +143,7 @@ class TestDisable2FAUseCase:
         use_case = Disable2FAUseCase(user_service=user_service, crypt=crypt, uow=mock_uow)
 
         with pytest.raises(InvalidCredentialsError):
-            await use_case(user.id.to_raw(), "Wrong@1234")
+            await use_case(user.id.to_raw(), 'Wrong@1234')
 
         mock_uow.commit.assert_not_awaited()
 
@@ -133,7 +162,8 @@ class TestVerify2FAUseCase:
     async def test_verify_valid_totp_code(self, mock_uow):
         from application.user.commands.manage_2fa import Verify2FAInput
 
-        secret = TwoFactorSecret.create(pyotp.random_base32()).enable()
+        secret, _backup_codes = TwoFactorSecret.create(pyotp.random_base32())
+        secret = secret.enable()
         user = _make_user(two_factor_secret=secret)
         use_case, repo = self._use_case(user, mock_uow)
 
@@ -148,9 +178,10 @@ class TestVerify2FAUseCase:
         from application.user.commands.manage_2fa import Verify2FAInput, Verify2FAUseCase
         from infrastructure.two_factor import TwoFactorAuth
 
-        secret = TwoFactorSecret.create(pyotp.random_base32()).enable()
+        secret, backup_codes = TwoFactorSecret.create(pyotp.random_base32())
+        secret = secret.enable()
         user = _make_user(two_factor_secret=secret)
-        used_code = secret.backup_codes[0]
+        used_code = backup_codes[0]
 
         repo = AsyncMock()
         repo.acquire_by_id = AsyncMock(return_value=user)
@@ -162,7 +193,12 @@ class TestVerify2FAUseCase:
 
         assert result.success is True
         repo.update.assert_awaited_once()
-        assert used_code not in updated_user[0].two_factor_secret.backup_codes
+        assert updated_user[0].two_factor_secret is not None
+        assert user.two_factor_secret is not None
+        assert (
+            updated_user[0].two_factor_secret.remaining_backup_codes()
+            == user.two_factor_secret.remaining_backup_codes() - 1
+        )
 
         # Replaying the SAME code against the now-persisted (updated) user must fail.
         repo.acquire_by_id = AsyncMock(return_value=updated_user[0])
@@ -173,11 +209,12 @@ class TestVerify2FAUseCase:
     async def test_verify_wrong_code_fails(self, mock_uow):
         from application.user.commands.manage_2fa import Verify2FAInput
 
-        secret = TwoFactorSecret.create(pyotp.random_base32()).enable()
+        secret, _backup_codes = TwoFactorSecret.create(pyotp.random_base32())
+        secret = secret.enable()
         user = _make_user(two_factor_secret=secret)
         use_case, repo = self._use_case(user, mock_uow)
 
-        result = await use_case(user.id.to_raw(), Verify2FAInput(code="000000"))
+        result = await use_case(user.id.to_raw(), Verify2FAInput(code='000000'))
 
         assert result.success is False
         repo.update.assert_not_awaited()
@@ -189,7 +226,7 @@ class TestVerify2FAUseCase:
         user = _make_user(two_factor_secret=None)
         use_case, repo = self._use_case(user, mock_uow)
 
-        result = await use_case(user.id.to_raw(), Verify2FAInput(code="000000"))
+        result = await use_case(user.id.to_raw(), Verify2FAInput(code='000000'))
 
         assert result.success is False
         repo.update.assert_not_awaited()
@@ -208,7 +245,6 @@ class TestRevokeSessionUseCase:
         use_case = RevokeSessionUseCase(user_service=user_service, uow=mock_uow)
         await use_case(user_id.to_raw(), str(session.session_id))
 
-        mock_uow.add_events.assert_called_once()
         mock_uow.commit.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -243,8 +279,6 @@ class TestRevokeAllSessionsUseCase:
 
         use_case = RevokeAllSessionsUseCase(user_service=user_service, hydra=hydra, uow=mock_uow)
         await use_case(user_id.to_raw())
-
-        assert mock_uow.add_events.call_count == 3
         mock_uow.commit.assert_awaited_once()
         hydra.revoke_consent_sessions.assert_awaited_once_with(str(user_id.to_raw()))
         hydra.revoke_login_sessions.assert_awaited_once_with(str(user_id.to_raw()))
@@ -311,7 +345,7 @@ class TestVerifyEmailUseCase:
         user_service.verify_email = AsyncMock(return_value=verified_user)
 
         use_case = VerifyEmailUseCase(user_service=user_service, uow=mock_uow)
-        result = await use_case(VerifyEmailInput(user_id=str(user.id.to_raw()), token="tok"))
+        result = await use_case(VerifyEmailInput(token='tok'))
 
         assert result.success is True
         mock_uow.commit.assert_awaited_once()
@@ -328,17 +362,18 @@ class TestRequestPasswordResetUseCase:
         user_service = MagicMock()
         user_service.request_password_reset = AsyncMock(return_value=None)
         rate_limiter = AsyncMock()
-        rate_limiter.check = AsyncMock(return_value=(True, 10, None))
+        rate_limiter.check = AsyncMock(return_value=RateLimitResult(True, 10, None))
 
         use_case = RequestPasswordResetUseCase(
             user_service=user_service,
             uow=mock_uow,
             rate_limiter=rate_limiter,
         )
-        result = await use_case(RequestPasswordResetInput(email="nobody@example.com"))
+        result = await use_case(RequestPasswordResetInput(email='nobody@example.com'))
 
+        # Reports success either way: a different answer for an unknown address would be an
+        # account-enumeration oracle.
         assert result.success is True
-        mock_uow.commit.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_rate_limited_raises(self, mock_uow):
@@ -350,7 +385,7 @@ class TestRequestPasswordResetUseCase:
 
         user_service = MagicMock()
         rate_limiter = AsyncMock()
-        rate_limiter.check = AsyncMock(return_value=(False, 0, None))
+        rate_limiter.check = AsyncMock(return_value=RateLimitResult(False, 0, None))
 
         use_case = RequestPasswordResetUseCase(
             user_service=user_service,
@@ -359,7 +394,7 @@ class TestRequestPasswordResetUseCase:
         )
 
         with pytest.raises(TooManyLoginAttemptsError):
-            await use_case(RequestPasswordResetInput(email="a@example.com", ip_address="1.2.3.4"))
+            await use_case(RequestPasswordResetInput(email='a@example.com', ip_address='1.2.3.4'))
 
         user_service.request_password_reset.assert_not_called()
 
@@ -376,16 +411,15 @@ class TestResetPasswordUseCase:
         user_service = MagicMock()
         user_service.reset_password = AsyncMock(return_value=user)
         rate_limiter = AsyncMock()
-        rate_limiter.check = AsyncMock(return_value=(True, 10, None))
+        rate_limiter.check = AsyncMock(return_value=RateLimitResult(True, 10, None))
 
         use_case = ResetPasswordUseCase(
             user_service=user_service, uow=mock_uow, rate_limiter=rate_limiter
         )
         result = await use_case(
             ResetPasswordInput(
-                user_id=str(user.id.to_raw()),
-                token="tok",
-                new_password="New@1234",
+                token='tok',
+                new_password='New@1234',
             )
         )
 
@@ -400,18 +434,17 @@ class TestUpdateProfileUseCase:
             UpdateProfileInput,
             UpdateProfileUseCase,
         )
-        from infrastructure.two_factor import TwoFactorAuth
 
-        user = _make_user().mark_email_verified().enable_two_factor(TwoFactorAuth())
-        updated = user.update_username(Username("newname"))
+        user, _codes = _with_active_two_factor(_make_user().mark_email_verified())
+        updated = user.update_username(Username('newname'))
         user_service = MagicMock()
         user_service.get_user_by_id = AsyncMock(return_value=user)
         user_service.update_user = AsyncMock(return_value=updated)
 
         use_case = UpdateProfileUseCase(user_service=user_service, uow=mock_uow)
-        result = await use_case(UpdateProfileInput(user_id=user.id.to_raw(), username="newname"))
+        result = await use_case(UpdateProfileInput(user_id=user.id.to_raw(), username='newname'))
 
-        assert result.username == "newname"
+        assert result.username == 'newname'
         assert result.is_email_verified is True
         assert result.is_locked is False
         assert result.has_two_factor is True
@@ -426,7 +459,7 @@ class TestChangePasswordUseCase:
         )
 
         user = _make_user()
-        changed = user._with(hashed_password=HashedPassword(b"new-hash"))
+        changed = user._with(hashed_password=HashedPassword(b'new-hash'))
         user_service = MagicMock()
         user_service.get_user_by_id = AsyncMock(return_value=user)
         user_service.change_password = AsyncMock(return_value=changed)
@@ -435,8 +468,8 @@ class TestChangePasswordUseCase:
         result = await use_case(
             ChangePasswordInput(
                 user_id=user.id.to_raw(),
-                old_password="Old@1234",
-                new_password="New@1234",
+                old_password='Old@1234',
+                new_password='New@1234',
             )
         )
 
@@ -463,8 +496,8 @@ class TestChangePasswordUseCase:
             await use_case(
                 ChangePasswordInput(
                     user_id=user.id.to_raw(),
-                    old_password="Wrong@1234",
-                    new_password="New@1234",
+                    old_password='Wrong@1234',
+                    new_password='New@1234',
                 )
             )
 
@@ -479,10 +512,10 @@ class TestRefreshTokenUseCase:
         user = _make_user()
         session = SessionAggregate.create(user_id=user.id, device_info=DeviceInfo())
         user_service = MagicMock()
-        user_service.refresh_session = AsyncMock(return_value=(session, user))
+        user_service.refresh_session = AsyncMock(return_value=(session, user, 'rotated-token'))
 
         use_case = RefreshTokenUseCase(user_service=user_service, uow=mock_uow)
-        result = await use_case(RefreshTokenInput(refresh_token="raw-token"))
+        result = await use_case(RefreshTokenInput(refresh_token='raw-token'))
 
         assert result.user_id == user.id.to_raw()
         assert result.session_id == str(session.session_id)
@@ -499,7 +532,7 @@ class TestRefreshTokenUseCase:
         use_case = RefreshTokenUseCase(user_service=user_service, uow=mock_uow)
 
         with pytest.raises(InvalidCredentialsError):
-            await use_case(RefreshTokenInput(refresh_token="bogus"))
+            await use_case(RefreshTokenInput(refresh_token='bogus'))
 
         mock_uow.commit.assert_not_awaited()
 
@@ -509,7 +542,7 @@ class TestDeleteRoleUseCase:
     async def test_deletes_role_and_commits(self, mock_uow):
         from application.user.commands.rbac import DeleteRoleInput, DeleteRoleUseCase
 
-        role = Role.create(name=RoleName("temp"))
+        role = Role.create(name=RoleName('temp'))
         deleted_role = role.delete()
         rbac_service = MagicMock()
         rbac_service.delete_role = AsyncMock(return_value=deleted_role)
@@ -518,7 +551,6 @@ class TestDeleteRoleUseCase:
         await use_case(DeleteRoleInput(role_id=role.role_id.to_raw()))
 
         rbac_service.delete_role.assert_awaited_once_with(role.role_id)
-        mock_uow.add_events.assert_called_once()
         mock_uow.commit.assert_awaited_once()
 
 
@@ -530,17 +562,17 @@ class TestAddPermissionToRoleUseCase:
             AddPermissionToRoleUseCase,
         )
 
-        role = Role.create(name=RoleName("editor"))
-        updated_role = role.add_permission(Permission(name="posts.edit"))
+        role = Role.create(name=RoleName('editor'))
+        updated_role = role.add_permission(Permission(name='posts.edit'))
         rbac_service = MagicMock()
         rbac_service.add_permission_to_role = AsyncMock(return_value=updated_role)
 
         use_case = AddPermissionToRoleUseCase(rbac_service=rbac_service, uow=mock_uow)
         result = await use_case(
-            AddPermissionToRoleInput(role_id=role.role_id.to_raw(), permission_name="posts.edit")
+            AddPermissionToRoleInput(role_id=role.role_id.to_raw(), permission_name='posts.edit')
         )
 
-        assert result.permissions == ("posts.edit",)
+        assert result.permissions == ('posts.edit',)
         mock_uow.commit.assert_awaited_once()
 
 
@@ -552,16 +584,16 @@ class TestRemovePermissionFromRoleUseCase:
             RemovePermissionFromRoleUseCase,
         )
 
-        role = Role.create(name=RoleName("editor"), description=None)
-        role = role.add_permission(Permission(name="posts.edit"))
-        updated_role = role.remove_permission("posts.edit")
+        role = Role.create(name=RoleName('editor'), description=None)
+        role = role.add_permission(Permission(name='posts.edit'))
+        updated_role = role.remove_permission('posts.edit')
         rbac_service = MagicMock()
         rbac_service.remove_permission_from_role = AsyncMock(return_value=updated_role)
 
         use_case = RemovePermissionFromRoleUseCase(rbac_service=rbac_service, uow=mock_uow)
         result = await use_case(
             RemovePermissionFromRoleInput(
-                role_id=role.role_id.to_raw(), permission_name="posts.edit"
+                role_id=role.role_id.to_raw(), permission_name='posts.edit'
             )
         )
 
@@ -574,7 +606,7 @@ class TestListPermissionsUseCase:
     async def test_lists_all_permissions(self):
         from application.user.queries.rbac import ListPermissionsUseCase
 
-        permissions = [Permission(name="posts.edit"), Permission(name="posts.delete")]
+        permissions = [Permission(name='posts.edit'), Permission(name='posts.delete')]
         rbac_service = MagicMock()
         rbac_service.get_all_permissions = AsyncMock(return_value=permissions)
 

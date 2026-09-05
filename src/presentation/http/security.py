@@ -23,13 +23,21 @@ class UserSecuritySchema:
     scopes: set[str] = field(default_factory=set)
 
 
-async def retrieve_user_handler(
-    token: Token, _connection: ASGIConnection[object, UserSecuritySchema, Token, DishkaState]
+async def retrieve_user_handler[HandlerT](
+    token: Token,
+    _connection: ASGIConnection[HandlerT, UserSecuritySchema, Token, DishkaState],
 ) -> UserSecuritySchema:
-    user_id = UUID(token.sub)
+    # A client_credentials token's subject is the client id, not a user id. Parsing it blindly
+    # turns an ordinary unauthorized request into an unhandled ValueError (a 500).
+    try:
+        user_id = UUID(token.sub)
+    except ValueError as e:
+        raise NotAuthorizedException('Token subject is not a user') from e
     scopes_raw = token.extras.get('scopes') if token.extras else None
     scopes_str = scopes_raw if isinstance(scopes_raw, str) else ''
-    return UserSecuritySchema(user_id=user_id, scopes=set(scopes_str.split()) if scopes_str else set())
+    return UserSecuritySchema(
+        user_id=user_id, scopes=set(scopes_str.split()) if scopes_str else set()
+    )
 
 
 def _introspection_cache_key(token: str) -> str:
@@ -38,8 +46,12 @@ def _introspection_cache_key(token: str) -> str:
 
 class HydraIntrospectionMiddleware(JWTAuthenticationMiddleware):
     @override
-    async def authenticate_token(
-        self, encoded_token: str, connection: ASGIConnection[object, UserSecuritySchema, Token, DishkaState]
+    async def authenticate_token[HandlerT](
+        self,
+        encoded_token: str,
+        # Generic in the handler position: this method does not care what kind of route it is
+        # attached to, and pinning it to `object` rejected a plain `Request`.
+        connection: ASGIConnection[HandlerT, UserSecuritySchema, Token, DishkaState],
     ) -> AuthenticationResult:
         container = connection.state.dishka_container
         hydra_client = await container.get(HydraAdminClient)
@@ -65,8 +77,17 @@ class HydraIntrospectionMiddleware(JWTAuthenticationMiddleware):
         if not introspection.active or not introspection.sub:
             raise NotAuthorizedException()
 
+        # Hydra reports refresh tokens as active as well. Without this check a refresh token —
+        # long-lived, stored on the client, logged far more casually — is accepted as a bearer.
+        if introspection.token_use not in (None, 'access_token'):
+            raise NotAuthorizedException()
+
         now = datetime.now(UTC)
-        exp = datetime.fromtimestamp(introspection.exp, tz=UTC) if introspection.exp else now + timedelta(minutes=5)
+        exp = (
+            datetime.fromtimestamp(introspection.exp, tz=UTC)
+            if introspection.exp
+            else now + timedelta(minutes=5)
+        )
         iat = datetime.fromtimestamp(introspection.iat, tz=UTC) if introspection.iat else now
 
         session_id = introspection.ext.get('session_id', '')
@@ -89,24 +110,30 @@ class HydraIntrospectionMiddleware(JWTAuthenticationMiddleware):
 
 
 def create_hydra_auth() -> JWTAuth[UserSecuritySchema]:
+    # Anchored: these are matched as regexes, so an unanchored '/health' would also exempt
+    # anything containing that substring.
     exclude_paths = [
-        '/health',
-        '/v1/users/login',
-        '/v1/users/register',
-        '/v1/auth/refresh',
-        '/v1/auth/request-password-reset',
-        '/v1/auth/reset-password',
-        '/schema',
-        '/auth/login',
-        '/auth/consent',
-        '/auth/logout',
+        '^/health',
+        '^/v1/users/login$',
+        '^/v1/users/register$',
+        '^/v1/auth/refresh$',
+        '^/v1/auth/request-password-reset$',
+        # Both of these identify the user by the emailed token; the recipient is by definition
+        # not signed in yet.
+        '^/v1/auth/reset-password$',
+        '^/v1/auth/verify-email$',
+        # The challenge token issued at login is the credential here.
+        '^/v1/auth/2fa/challenge$',
+        '^/schema',
+        '^/auth/login$',
+        '^/auth/consent$',
+        '^/auth/logout$',
     ]
 
-    auth = JWTAuth[UserSecuritySchema](
+    return JWTAuth[UserSecuritySchema](
         retrieve_user_handler=retrieve_user_handler,
         token_secret='',
         algorithm='RS256',
         exclude=exclude_paths,
         authentication_middleware_class=HydraIntrospectionMiddleware,
     )
-    return auth

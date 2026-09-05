@@ -5,7 +5,10 @@ from typing import override
 
 @dataclass(frozen=True)
 class BaseEntity(ABC):
-    """Entities compare by identity, not by value — override `_identity()` to say what identifies one."""
+    """Entities compare by identity, not by value.
+
+    Override `_identity()` to say what identifies one.
+    """
 
     @abstractmethod
     def _identity(self) -> object: ...

@@ -1,4 +1,8 @@
-from .rbac import PermissionRepositoryInterface, RoleRepositoryInterface, UserRoleRepositoryInterface
+from .rbac import (
+    PermissionRepositoryInterface,
+    RoleRepositoryInterface,
+    UserRoleRepositoryInterface,
+)
 from .readers import RoleReadDTO, RoleReader, SessionReadDTO, SessionReader, UserReadDTO, UserReader
 from .repository import UserRepositoryInterface
 from .session_repo import SessionRepositoryInterface

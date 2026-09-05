@@ -7,7 +7,7 @@ meta {
 post {
   url: {{base_url}}/v1/auth/verify-email
   body: json
-  auth: inherit
+  auth: none
 }
 
 body:json {
@@ -17,8 +17,12 @@ body:json {
 }
 
 docs {
-  Needs a Bearer token (not in this service's public-endpoint exclude list) — run
-  `oidc/1` + `oidc/2` first. The token itself comes over email
-  (`infrastructure/email/sender.py`); check `api` container logs or the
-  `email_verification_token` column in Postgres in local dev.
+  Unauthenticated: the token identifies the user. It has to be — the address is verified
+  *before* the user can meaningfully sign in.
+
+  The token arrives by email. In local dev, read it from the `outbox_worker` container logs.
+  The link in the email is `GET /v1/auth/verify-email?token=…`, which does the same thing and
+  renders a result page.
+
+  Only the SHA-256 of the token is stored, so you cannot recover it from the database.
 }

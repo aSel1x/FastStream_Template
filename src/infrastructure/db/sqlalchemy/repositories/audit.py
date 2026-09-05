@@ -3,13 +3,13 @@ from typing import ClassVar, final, override
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, JsonValue
-from sqlalchemy import select
-from sqlalchemy.engine import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.audit import AuditLog, AuditRepositoryInterface
 from infrastructure.db.sqlalchemy.models.audit import AUDIT_LOGS_TABLE
 from infrastructure.db.sqlalchemy.repositories.base import SQLAlchemyRepo
+from sqlalchemy import select
+from sqlalchemy.engine import RowMapping
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class _AuditLogRow(BaseModel):
@@ -60,7 +60,9 @@ class SQLAlchemyAuditLogRepo(SQLAlchemyRepo, AuditRepositoryInterface):
         return [_row_to_audit_log(row) for row in result.mappings().all()]
 
     @override
-    async def get_by_entity(self, entity_type: str, entity_id: UUID, limit: int = 100) -> list[AuditLog]:
+    async def get_by_entity(
+        self, entity_type: str, entity_id: UUID, limit: int = 100
+    ) -> list[AuditLog]:
         result = await self._session.execute(
             select(AUDIT_LOGS_TABLE)
             .where(AUDIT_LOGS_TABLE.c.entity_type == entity_type)

@@ -12,6 +12,20 @@ post {
 
 body:json {
   {
-    "refresh_token": "ory_at_-OVUH0719eXfDW8QqxoKCL6rzBYnPawOuBPc8g3VaDE.RaJ-gvFQCjt4W31XUw1MhAZs-NIk8HisV_IsBibFICE"
+    "refresh_token": "{{refresh_token}}"
   }
+}
+
+script:post-response {
+  if (res.getStatus() === 200 && res.getBody().refresh_token) {
+    bru.setEnvVar("refresh_token", res.getBody().refresh_token);
+  }
+}
+
+docs {
+  Tokens rotate: the response carries a **new** `refresh_token` and the one you presented is
+  revoked. The post-response script stores the new one automatically.
+
+  Presenting a token that was already exchanged is treated as a leak, not a mistake — the
+  whole session is revoked and you get a 401. Try it twice with the same token to see it.
 }

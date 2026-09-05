@@ -5,6 +5,7 @@ Revises: add_audit_logs
 Create Date: 2026-04-18 18:00:00
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -18,7 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table('oauth_clients',
+    op.create_table(
+        'oauth_clients',
         sa.Column('client_id', sa.String(64), nullable=False),
         sa.Column('client_secret_hash', sa.LargeBinary, nullable=True),
         sa.Column('client_secret_salt', sa.LargeBinary, nullable=True),
@@ -36,7 +38,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('client_id', name=op.f('pk_oauth_clients')),
     )
 
-    op.create_table('authorization_codes',
+    op.create_table(
+        'authorization_codes',
         sa.Column('code', sa.String(128), nullable=False),
         sa.Column('client_id', sa.String(64), nullable=False),
         sa.Column('user_id', sa.UUID(as_uuid=True), nullable=False),
@@ -52,7 +55,8 @@ def upgrade() -> None:
     )
     op.create_index('ix_authorization_codes_client_id', 'authorization_codes', ['client_id'])
 
-    op.create_table('signing_keys',
+    op.create_table(
+        'signing_keys',
         sa.Column('kid', sa.String(64), nullable=False),
         sa.Column('algorithm', sa.String(8), nullable=False),
         sa.Column('private_key_pem', sa.Text, nullable=False),

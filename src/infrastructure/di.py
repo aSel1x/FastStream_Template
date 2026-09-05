@@ -3,10 +3,22 @@ from uuid import uuid4
 
 import httpx
 import redis.asyncio as redis
+from dishka import (
+    Provider,
+    Scope,
+    provide,  # pyright: ignore[reportUnknownVariableType]
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from application.common.interfaces import EventHandler, UnitOfWorkInterface, UUIDGeneratorInterface
-from application.common.interfaces.system.cache import CacheInterface
 from application.common.interfaces.acl.hydra_admin import HydraAdminClientInterface
+from application.common.interfaces.system.cache import CacheInterface
+from application.common.interfaces.system.metrics import MetricsInterface
 from application.common.interfaces.system.rate_limiter import (
     LoginAttemptLimiterInterface,
     RateLimiterInterface,
@@ -16,12 +28,14 @@ from application.hydra_clients.commands.delete_client import DeleteOAuthClientUs
 from application.hydra_clients.commands.rotate_client_secret import RotateClientSecretUseCase
 from application.hydra_clients.queries.list_clients import ListOAuthClientsUseCase
 from application.user.commands.change_password import ChangePasswordUseCase
+from application.user.commands.complete_two_factor import CompleteTwoFactorUseCase
 from application.user.commands.create_user import CreateUserUseCase
 from application.user.commands.delete_me import DeleteMeUseCase
 from application.user.commands.login import LoginUseCase
 from application.user.commands.manage_2fa import (
-    Enable2FAUseCase,
+    Confirm2FAUseCase,
     Disable2FAUseCase,
+    Enable2FAUseCase,
     Verify2FAUseCase,
 )
 from application.user.commands.manage_sessions import RevokeAllSessionsUseCase, RevokeSessionUseCase
@@ -41,6 +55,7 @@ from application.user.commands.reset_password import (
 from application.user.commands.update_profile import UpdateProfileUseCase
 from application.user.commands.verify_email import VerifyEmailUseCase
 from application.user.queries.get_me import GetMeUseCase
+from application.user.queries.id_token_claims import BuildConsentClaimsUseCase
 from application.user.queries.manage_sessions import GetUserSessionsUseCase
 from application.user.queries.rbac import (
     CheckPermissionUseCase,
@@ -48,14 +63,10 @@ from application.user.queries.rbac import (
     GetUserRolesUseCase,
     ListPermissionsUseCase,
 )
-from domain.user.interfaces.persistence.readers import RoleReader, SessionReader, UserReader
-from infrastructure.db.sqlalchemy.repositories.readers import (
-    SQLAlchemyRoleReader,
-    SQLAlchemySessionReader,
-    SQLAlchemyUserReader,
-)
-from application.user.services import UserService
 from application.user.rbac_service import RBACService
+from application.user.replay_guard import UsedCodeRegistry
+from application.user.services import UserService
+from application.user.two_factor_challenge import TwoFactorChallengeStore
 from domain.audit import AuditEventHandler, AuditRepositoryInterface
 from domain.user.interfaces import (
     CryptInterface,
@@ -63,20 +74,13 @@ from domain.user.interfaces import (
     TwoFactorInterface,
     UserRepositoryInterface,
 )
+from domain.user.interfaces.acl.secret_cipher import SecretCipherInterface
 from domain.user.interfaces.persistence.rbac import (
     PermissionRepositoryInterface,
     RoleRepositoryInterface,
     UserRoleRepositoryInterface,
 )
-from dishka import Provider, Scope
-from dishka import provide  # pyright: ignore[reportUnknownVariableType]
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-
+from domain.user.interfaces.persistence.readers import RoleReader, SessionReader, UserReader
 from infrastructure.cache.config import CacheConfig
 from infrastructure.cache.memory_cache import InMemoryCache
 from infrastructure.cache.redis_cache import RedisCache
@@ -89,12 +93,19 @@ from infrastructure.db.sqlalchemy.repositories.rbac import (
     SQLAlchemyRoleRepo,
     SQLAlchemyUserRoleRepo,
 )
+from infrastructure.db.sqlalchemy.repositories.readers import (
+    SQLAlchemyRoleReader,
+    SQLAlchemySessionReader,
+    SQLAlchemyUserReader,
+)
 from infrastructure.db.sqlalchemy.repositories.session import SQLAlchemySessionRepo
 from infrastructure.db.sqlalchemy.repositories.user import SQLAlchemyUserRepo
 from infrastructure.db.sqlalchemy.uow import SQLAlchemyUoW
 from infrastructure.email import EmailSenderInterface, SMTPSender
 from infrastructure.hydra import HydraAdminClient, HydraConfig
 from infrastructure.idempotency import IdempotencyStore
+from infrastructure.observability.prometheus_metrics import PrometheusMetrics
+from infrastructure.secret_cipher import FernetSecretCipher
 from infrastructure.security.rate_limiter import (
     InMemoryLoginAttemptLimiter,
     InMemoryRateLimiter,
@@ -102,6 +113,7 @@ from infrastructure.security.rate_limiter import (
 )
 from infrastructure.security.redis_rate_limiter import RedisLoginAttemptLimiter, RedisRateLimiter
 from infrastructure.two_factor import TwoFactorAuth
+from infrastructure.two_factor_challenge_store import CachedTwoFactorChallengeStore
 
 
 class AppProvider(Provider):
@@ -141,15 +153,24 @@ class AppProvider(Provider):
         _ = self.provide(DeleteOAuthClientUseCase, scope=Scope.REQUEST)
         _ = self.provide(RotateClientSecretUseCase, scope=Scope.REQUEST)
 
+        _ = self.provide(
+            CachedTwoFactorChallengeStore, provides=TwoFactorChallengeStore, scope=Scope.REQUEST
+        )
+        _ = self.provide(UsedCodeRegistry, scope=Scope.REQUEST)
+        _ = self.provide(PrometheusMetrics, provides=MetricsInterface, scope=Scope.APP)
+
         _ = self.provide(CreateUserUseCase, scope=Scope.REQUEST)
+        _ = self.provide(CompleteTwoFactorUseCase, scope=Scope.REQUEST)
         _ = self.provide(LoginUseCase, scope=Scope.REQUEST)
         _ = self.provide(RefreshTokenUseCase, scope=Scope.REQUEST)
         _ = self.provide(GetMeUseCase, scope=Scope.REQUEST)
+        _ = self.provide(BuildConsentClaimsUseCase, scope=Scope.REQUEST)
         _ = self.provide(UpdateProfileUseCase, scope=Scope.REQUEST)
         _ = self.provide(ChangePasswordUseCase, scope=Scope.REQUEST)
         _ = self.provide(DeleteMeUseCase, scope=Scope.REQUEST)
 
         _ = self.provide(Enable2FAUseCase, scope=Scope.REQUEST)
+        _ = self.provide(Confirm2FAUseCase, scope=Scope.REQUEST)
         _ = self.provide(Disable2FAUseCase, scope=Scope.REQUEST)
         _ = self.provide(Verify2FAUseCase, scope=Scope.REQUEST)
 
@@ -177,7 +198,11 @@ class AppProvider(Provider):
         return uuid4
 
     @provide(scope=Scope.APP)
-    async def redis_client(self, config: RateLimitConfig) -> AsyncGenerator[redis.Redis, None]:
+    def secret_cipher(self) -> SecretCipherInterface:
+        return FernetSecretCipher.from_environ()
+
+    @provide(scope=Scope.APP)
+    async def redis_client(self, config: RateLimitConfig) -> AsyncGenerator[redis.Redis]:
         client = redis.Redis.from_url(config.redis_url)  # pyright: ignore[reportUnknownMemberType]
         yield client
         await client.aclose()
@@ -186,7 +211,7 @@ class AppProvider(Provider):
     def rate_limiter(
         self, config: RateLimitConfig, redis_client: redis.Redis
     ) -> RateLimiterInterface:
-        if config.backend == "redis":
+        if config.backend == 'redis':
             return RedisRateLimiter(redis_client, config.max_requests, config.window_seconds)
         return InMemoryRateLimiter(config)
 
@@ -196,7 +221,7 @@ class AppProvider(Provider):
         config: RateLimitConfig,
         redis_client: redis.Redis,
     ) -> LoginAttemptLimiterInterface:
-        if config.backend == "redis":
+        if config.backend == 'redis':
             return RedisLoginAttemptLimiter(
                 redis_client, config.max_login_attempts, config.lockout_seconds
             )
@@ -204,14 +229,12 @@ class AppProvider(Provider):
 
     @provide(scope=Scope.APP)
     def cache(self, config: CacheConfig, redis_client: redis.Redis) -> CacheInterface:
-        if config.backend == "redis":
+        if config.backend == 'redis':
             return RedisCache(redis_client)
         return InMemoryCache()
 
     @provide(scope=Scope.APP)
-    async def hydra_http_client(
-        self, config: HydraConfig
-    ) -> AsyncGenerator[httpx.AsyncClient, None]:
+    async def hydra_http_client(self, config: HydraConfig) -> AsyncGenerator[httpx.AsyncClient]:
         client = httpx.AsyncClient(
             base_url=config.admin_url, timeout=config.request_timeout_seconds
         )
@@ -230,17 +253,33 @@ class AppProvider(Provider):
 
     @provide(scope=Scope.APP)
     def db_engine(self, sqlalchemy_config: SQLAlchemyConfig) -> AsyncEngine:
+        # A hardcoded pool_size of 50 per process multiplied by every replica exhausts
+        # Postgres' max_connections long before the app is under real load. Sized from
+        # config instead, with the operational knobs that were missing: pre-ping so a
+        # connection killed by the network is detected, recycle so it is not reused
+        # forever, and a server-side statement timeout so one bad query cannot pin a
+        # connection indefinitely.
         return create_async_engine(
-            sqlalchemy_config.full_url,
+            sqlalchemy_config.url,
             echo=sqlalchemy_config.echo,
             echo_pool=sqlalchemy_config.echo,
-            pool_size=50,
+            pool_size=sqlalchemy_config.pool_size,
+            max_overflow=sqlalchemy_config.max_overflow,
+            pool_timeout=sqlalchemy_config.pool_timeout,
+            pool_recycle=sqlalchemy_config.pool_recycle_seconds,
+            pool_pre_ping=True,
+            connect_args={
+                'server_settings': {
+                    'application_name': sqlalchemy_config.application_name,
+                    'statement_timeout': str(sqlalchemy_config.statement_timeout_ms),
+                },
+            },
         )
 
     @provide(scope=Scope.REQUEST)
     async def db_session(
         self, session_factory: async_sessionmaker[AsyncSession]
-    ) -> AsyncGenerator[AsyncSession, None]:
+    ) -> AsyncGenerator[AsyncSession]:
         async with session_factory() as session:
             yield session
 

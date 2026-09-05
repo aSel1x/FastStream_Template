@@ -3,11 +3,20 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from litestar.connection import Request
+from litestar.enums import ScopeType
 from litestar.exceptions import NotAuthorizedException
+from litestar.security.jwt import Token
+from litestar.testing import RequestFactory
 
 from infrastructure.hydra.config import HydraConfig
 from infrastructure.hydra.schemas import HydraIntrospection
-from presentation.http.security import HydraIntrospectionMiddleware, retrieve_user_handler
+from presentation.http.di_state import DishkaState
+from presentation.http.security import (
+    HydraIntrospectionMiddleware,
+    UserSecuritySchema,
+    retrieve_user_handler,
+)
 
 
 async def _noop_app(scope, receive, send) -> None:
@@ -23,23 +32,33 @@ def _make_middleware() -> HydraIntrospectionMiddleware:
         exclude_http_methods=None,
         exclude_opt_key='exclude_from_auth',
         retrieve_user_handler=retrieve_user_handler,
-        scopes=None,
+        scopes={ScopeType.HTTP},
         token_secret='',
     )
 
 
-def _make_connection(cache: AsyncMock, hydra_client: AsyncMock, config: HydraConfig) -> SimpleNamespace:
-    registry = {
+def _make_connection(
+    cache: AsyncMock, hydra_client: AsyncMock, config: HydraConfig
+) -> Request[UserSecuritySchema, Token, DishkaState]:
+    """A real ASGIConnection carrying a stub dishka container.
+
+    Built from an ASGI scope rather than faked with SimpleNamespace: the middleware takes a
+    concrete Litestar type, so a look-alike only type-checks by accident.
+    """
+    registry: dict[str, object] = {
         'HydraAdminClient': hydra_client,
         'CacheInterface': cache,
         'HydraConfig': config,
     }
 
-    async def resolve(cls):
+    async def resolve(cls: type[object], component: str = '') -> object:
         return registry[cls.__name__]
 
-    container = SimpleNamespace(get=resolve)
-    return SimpleNamespace(state=SimpleNamespace(dishka_container=container))
+    connection: Request[UserSecuritySchema, Token, DishkaState] = RequestFactory().get('/')
+    # `setup_dishka` attaches the container at runtime; a stub with just `get` is all the
+    # middleware touches, and there is no public way to build a real container of doubles.
+    connection.state.dishka_container = SimpleNamespace(get=resolve)  # pyright: ignore[reportAttributeAccessIssue]
+    return connection
 
 
 class TestHydraIntrospectionMiddleware:
@@ -49,10 +68,19 @@ class TestHydraIntrospectionMiddleware:
         cache = AsyncMock()
         cache.get = AsyncMock(return_value=None)
         hydra_client = AsyncMock()
-        hydra_client.introspect_token = AsyncMock(return_value=HydraIntrospection(
-            active=True, sub=str(user_id), client_id='client-1', scope='openid profile',
-            aud=[], exp=9999999999, iat=1, token_type='access_token', ext={'session_id': 'sess-1'},
-        ))
+        hydra_client.introspect_token = AsyncMock(
+            return_value=HydraIntrospection(
+                active=True,
+                sub=str(user_id),
+                client_id='client-1',
+                scope='openid profile',
+                aud=[],
+                exp=9999999999,
+                iat=1,
+                token_type='access_token',
+                ext={'session_id': 'sess-1'},
+            )
+        )
         config = HydraConfig(introspection_cache_ttl_seconds=30)
         connection = _make_connection(cache, hydra_client, config)
 
@@ -72,10 +100,21 @@ class TestHydraIntrospectionMiddleware:
 
         user_id = str(uuid4())
         cache = AsyncMock()
-        cache.get = AsyncMock(return_value=json.dumps({
-            'active': True, 'sub': user_id, 'client_id': 'client-1', 'scope': 'openid',
-            'aud': [], 'exp': 9999999999, 'iat': 1, 'token_type': 'access_token', 'ext': {},
-        }))
+        cache.get = AsyncMock(
+            return_value=json.dumps(
+                {
+                    'active': True,
+                    'sub': user_id,
+                    'client_id': 'client-1',
+                    'scope': 'openid',
+                    'aud': [],
+                    'exp': 9999999999,
+                    'iat': 1,
+                    'token_type': 'access_token',
+                    'ext': {},
+                }
+            )
+        )
         hydra_client = AsyncMock()
         config = HydraConfig()
         connection = _make_connection(cache, hydra_client, config)
@@ -90,9 +129,18 @@ class TestHydraIntrospectionMiddleware:
         cache = AsyncMock()
         cache.get = AsyncMock(return_value=None)
         hydra_client = AsyncMock()
-        hydra_client.introspect_token = AsyncMock(return_value=HydraIntrospection(
-            active=False, sub=None, client_id=None, scope='', aud=[], exp=None, iat=None, token_type=None,
-        ))
+        hydra_client.introspect_token = AsyncMock(
+            return_value=HydraIntrospection(
+                active=False,
+                sub=None,
+                client_id=None,
+                scope='',
+                aud=[],
+                exp=None,
+                iat=None,
+                token_type=None,
+            )
+        )
         config = HydraConfig(introspection_negative_cache_ttl_seconds=10)
         connection = _make_connection(cache, hydra_client, config)
 

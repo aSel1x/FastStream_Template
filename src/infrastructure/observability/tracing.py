@@ -12,10 +12,12 @@ def setup_tracing(config: ObservabilityConfig) -> TracerProvider | None:
     if not config.enabled:
         return None
 
-    resource = Resource.create({
-        'service.name': config.service_name,
-        'service.version': config.service_version,
-    })
+    resource = Resource.create(
+        {
+            'service.name': config.service_name,
+            'service.version': config.service_version,
+        }
+    )
     provider = TracerProvider(resource=resource)
 
     exporter = (

@@ -19,7 +19,6 @@ class RevokeSessionUseCase:
     async def __call__(self, user_id: UUID, session_id: str) -> None:
         session = await self._user_service.revoke_session(UUID(session_id), UserID(user_id))
         if session:
-            self._uow.add_events(session.pull_events())
             await self._uow.commit()
 
 
@@ -36,9 +35,7 @@ class RevokeAllSessionsUseCase:
         self._uow = uow
 
     async def __call__(self, user_id: UUID) -> None:
-        sessions = await self._user_service.revoke_all_sessions(UserID(user_id))
-        for session in sessions:
-            self._uow.add_events(session.pull_events())
+        _ = await self._user_service.revoke_all_sessions(UserID(user_id))
         await self._uow.commit()
 
         # Revoking our own sessions only stops future refresh-token renewal — the OAuth2

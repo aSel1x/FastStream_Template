@@ -1,9 +1,9 @@
 """HTTP e2e tests."""
+
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from typing import Any
-
 from litestar import Litestar, Request, get
 from litestar.testing import TestClient
 
@@ -44,10 +44,13 @@ class TestFullApp:
     """Tests that boot the real Litestar app (routes, DI graph, middleware) without live infra."""
 
     def test_full_app_health(self) -> None:
-        with patch('presentation.http.app.seed_oauth_clients', AsyncMock()):
-            with patch('presentation.http.app.seed_admin_role', AsyncMock()):
-                from presentation.http.app import get_litestar
-                app = get_litestar()
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.get('/health')
-                assert response.status_code == 200
+        with (
+            patch('presentation.http.app.seed_oauth_clients', AsyncMock()),
+            patch('presentation.http.app.seed_admin_role', AsyncMock()),
+        ):
+            from presentation.http.app import get_litestar
+
+            app = get_litestar()
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get('/health')
+            assert response.status_code == 200

@@ -50,7 +50,7 @@ class OAuthSeedConfig:
     clients: tuple[SeedClientConfig, ...] = field(default_factory=tuple)
 
     @classmethod
-    def from_environ(cls) -> 'OAuthSeedConfig':
+    def from_environ(cls) -> OAuthSeedConfig:
         raw = getenv('OAUTH_SEED_CLIENTS', '')
         if not raw:
             return cls()
