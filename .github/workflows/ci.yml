@@ -103,9 +103,12 @@ jobs:
       - uses: actions/checkout@v5
 
       # No other job parses docker-compose.yaml, so a malformed one reaches contributors
-      # as a failing `make build` -- the very first command in the README.
+      # as a failing `make build` -- the very first command in the README. `cp .env.dist
+      # .env` is what the README tells them to do first, and it is required rather than
+      # cosmetic: --env-file only redirects interpolation, while every service's
+      # `env_file: - .env` is still resolved literally and is an error when absent.
       - name: Validate the compose file
-        run: docker compose --env-file .env.dist config --quiet
+        run: cp .env.dist .env && docker compose config --quiet
 
       # The runner's default builder uses the `docker` driver, which cannot export a
       # build cache; `cache-to: type=gha` fails outright without a docker-container
