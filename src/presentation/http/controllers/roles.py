@@ -6,6 +6,7 @@ from dishka.integrations.litestar import inject
 from litestar import Controller, delete, get, post
 from litestar.connection import Request
 from litestar.datastructures.state import State
+from litestar.params import FromPath
 from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
@@ -87,7 +88,7 @@ class RolesController(Controller):
     @inject
     async def delete_role(
         self,
-        role_id: UUID,
+        role_id: FromPath[UUID],
         use_case: FromDishka[DeleteRoleUseCase],
     ) -> None:
         await use_case(DeleteRoleInput(role_id=role_id))
@@ -113,7 +114,7 @@ class RolesController(Controller):
     @inject
     async def assign_role(
         self,
-        role_id: UUID,
+        role_id: FromPath[UUID],
         data: AssignRoleRequestSchema,
         request: Request[UserSecuritySchema, Token, State],
         use_case: FromDishka[AssignRoleUseCase],
@@ -131,7 +132,7 @@ class RolesController(Controller):
     @inject
     async def revoke_role(
         self,
-        role_id: UUID,
+        role_id: FromPath[UUID],
         data: AssignRoleRequestSchema,
         use_case: FromDishka[RevokeRoleUseCase],
     ) -> dict[str, str]:
@@ -147,7 +148,7 @@ class RolesController(Controller):
     @inject
     async def get_user_roles(
         self,
-        user_id: UUID,
+        user_id: FromPath[UUID],
         use_case: FromDishka[GetUserRolesUseCase],
     ) -> list[RoleResponseSchema]:
         roles = await use_case(user_id)
@@ -165,7 +166,7 @@ class RolesController(Controller):
     @inject
     async def add_permission(
         self,
-        role_id: UUID,
+        role_id: FromPath[UUID],
         data: PermissionRequestSchema,
         use_case: FromDishka[AddPermissionToRoleUseCase],
     ) -> RoleResponseSchema:
@@ -181,8 +182,8 @@ class RolesController(Controller):
     @inject
     async def remove_permission(
         self,
-        role_id: UUID,
-        permission_name: str,
+        role_id: FromPath[UUID],
+        permission_name: FromPath[str],
         use_case: FromDishka[RemovePermissionFromRoleUseCase],
     ) -> RoleResponseSchema:
         role = await use_case(

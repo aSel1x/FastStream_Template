@@ -10,11 +10,11 @@ from dishka import AsyncContainer, make_async_container
 from dishka.integrations.litestar import LitestarProvider, setup_dishka
 from litestar import Litestar
 from litestar.config.csrf import CSRFConfig
-from litestar.contrib.jinja import JinjaTemplateEngine
-from litestar.contrib.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
 from litestar.middleware import DefineMiddleware
 from litestar.openapi.config import OpenAPIConfig
 from litestar.plugins import PluginProtocol
+from litestar.plugins.jinja import JinjaTemplateEngine
+from litestar.plugins.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
 from litestar.template.config import TemplateConfig
 
 from application.user.commands.rbac import (

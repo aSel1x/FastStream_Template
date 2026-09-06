@@ -8,7 +8,7 @@ from litestar.connection import ASGIConnection
 from litestar.datastructures import State
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import HTTPException
-from litestar.params import Body
+from litestar.params import Body, FromQuery
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_400_BAD_REQUEST
 from pydantic import BaseModel
@@ -79,7 +79,7 @@ class HydraBridgeController(Controller):
     async def login_form(
         self,
         hydra: FromDishka[HydraAdminClient],
-        login_challenge: str,
+        login_challenge: FromQuery[str],
     ) -> Template | Redirect:
         try:
             login_request = await hydra.get_login_request(login_challenge)
@@ -221,7 +221,7 @@ class HydraBridgeController(Controller):
         hydra: FromDishka[HydraAdminClient],
         build_claims: FromDishka[BuildConsentClaimsUseCase],
         config: FromDishka[HydraConfig],
-        consent_challenge: str,
+        consent_challenge: FromQuery[str],
     ) -> Template | Redirect:
         try:
             consent_request = await hydra.get_consent_request(consent_challenge)
@@ -314,7 +314,7 @@ class HydraBridgeController(Controller):
     async def logout(
         self,
         hydra: FromDishka[HydraAdminClient],
-        logout_challenge: str,
+        logout_challenge: FromQuery[str],
     ) -> Redirect:
         try:
             _ = await hydra.get_logout_request(logout_challenge)

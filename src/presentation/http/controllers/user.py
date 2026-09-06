@@ -7,7 +7,7 @@ from dishka.integrations.litestar import inject
 from litestar import Controller, delete, get, patch, post
 from litestar.connection import Request
 from litestar.datastructures.state import State
-from litestar.params import Parameter
+from litestar.params import FromPath, FromQuery, HeaderParameter, Parameter
 from litestar.response import Template
 from litestar.security.jwt import Token
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
@@ -187,7 +187,7 @@ class UserController(Controller):
         data: RegisterRequestSchema,
         use_case: FromDishka[CreateUserUseCase],
         idempotency: FromDishka[IdempotencyStore],
-        idempotency_key: Annotated[str | None, Parameter(header='Idempotency-Key')] = None,
+        idempotency_key: Annotated[str | None, HeaderParameter(name='Idempotency-Key')] = None,
     ) -> UUID:
         client_host = client_ip_or_unknown(request)
 
@@ -414,7 +414,7 @@ class AuthController(Controller):
     @inject
     async def verify_email_landing(
         self,
-        token: str,
+        token: FromQuery[str],
         use_case: FromDishka[VerifyEmailUseCase],
     ) -> Template:
         try:
@@ -482,7 +482,7 @@ class AuthController(Controller):
         tags=['auth'],
         include_in_schema=False,
     )
-    async def reset_password_form(self, token: str) -> Template:
+    async def reset_password_form(self, token: FromQuery[str]) -> Template:
         return Template('account/reset_password.html', context={'token': token})
 
     @post(
@@ -611,7 +611,7 @@ class SessionController(Controller):
     async def revoke_session(
         self,
         request: Request[UserSecuritySchema, Token, State],
-        session_id: str,
+        session_id: FromPath[str],
         use_case: FromDishka[RevokeSessionUseCase],
     ) -> None:
         await use_case(request.user.user_id, session_id)

@@ -3,6 +3,7 @@ from typing import final
 from dishka import FromDishka
 from dishka.integrations.litestar import inject
 from litestar import Controller, delete, get, post
+from litestar.params import FromPath
 from pydantic import BaseModel
 
 from application.hydra_clients.commands.create_client import (
@@ -105,7 +106,7 @@ class AdminClientsController(Controller):
     @inject
     async def delete_client(
         self,
-        client_id: str,
+        client_id: FromPath[str],
         use_case: FromDishka[DeleteOAuthClientUseCase],
     ) -> dict[str, str]:
         await use_case(client_id)
@@ -115,7 +116,7 @@ class AdminClientsController(Controller):
     @inject
     async def rotate_secret(
         self,
-        client_id: str,
+        client_id: FromPath[str],
         use_case: FromDishka[RotateClientSecretUseCase],
     ) -> RotateSecretResponse:
         result = await use_case(client_id)
