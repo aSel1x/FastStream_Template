@@ -1,5 +1,10 @@
 name: CI
 
+# Every action here is pinned to the lowest major that declares `runs.using: node24`.
+# GitHub removes the Node 20 runtime from the runners on 2026-09-23, and the
+# ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION escape hatch stops working at the same moment,
+# so a node20 major is a dead job rather than a warning after that date.
+
 on:
   push:
     branches: [main, ddd]
@@ -17,10 +22,10 @@ jobs:
     name: Lint & format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -38,10 +43,10 @@ jobs:
     name: Type check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -54,10 +59,10 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -68,7 +73,7 @@ jobs:
         run: uv run pytest tests --cov --cov-report=term-missing --cov-report=xml
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage
           path: coverage.xml
@@ -78,10 +83,10 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -95,7 +100,7 @@ jobs:
     name: Docker build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # No other job parses docker-compose.yaml, so a malformed one reaches contributors
       # as a failing `make build` -- the very first command in the README.
@@ -106,10 +111,10 @@ jobs:
       # build cache; `cache-to: type=gha` fails outright without a docker-container
       # builder to write it.
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build production image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: prod
@@ -143,10 +148,10 @@ jobs:
       POSTGRES_DB: backend_template
       POSTGRES_ECHO: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
