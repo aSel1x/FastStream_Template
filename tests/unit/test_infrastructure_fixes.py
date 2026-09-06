@@ -77,26 +77,30 @@ class TestHTTPSRedirectMiddleware:
         monkeypatch.setenv('PUBLIC_HOST', 'app.example.com')
 
     def _make_app(self, enabled: bool) -> Litestar:
-        @get('/health')
-        async def health() -> dict[str, str]:
-            return {'status': 'healthy'}
+        @get('/private')
+        async def private() -> dict[str, str]:
+            return {'status': 'ok'}
+
+        @get('/health/live')
+        async def live() -> dict[str, str]:
+            return {'status': 'alive'}
 
         return Litestar(
-            route_handlers=[health],
+            route_handlers=[private, live],
             middleware=[DefineMiddleware(HTTPSRedirectMiddleware, enabled=enabled)],
         )
 
     def test_redirects_http_to_https(self) -> None:
         with TestClient(self._make_app(enabled=True)) as client:
             response = client.get(
-                '/health',
+                '/private',
                 headers={'x-forwarded-proto': 'http'},
                 follow_redirects=False,
             )
 
             assert response.status_code == 301
             assert response.headers['location'].startswith('https://app.example.com')
-            assert '/health' in response.headers['location']
+            assert '/private' in response.headers['location']
 
     def test_refuses_to_redirect_to_an_unknown_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv('PUBLIC_HOST', raising=False)
@@ -104,17 +108,48 @@ class TestHTTPSRedirectMiddleware:
 
         with TestClient(self._make_app(enabled=True)) as client:
             response = client.get(
-                '/health',
+                '/private',
                 headers={'x-forwarded-proto': 'http', 'host': 'evil.example.net'},
                 follow_redirects=False,
             )
 
             assert response.status_code == 400, 'reflecting Host would be an open redirect'
 
+    def test_allows_an_allowed_host_that_carries_a_port(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`Host` routinely arrives as `example.com:443`, which must still match the list."""
+        monkeypatch.delenv('PUBLIC_HOST', raising=False)
+        monkeypatch.setenv('ALLOWED_HOSTS', 'app.example.com')
+
+        with TestClient(self._make_app(enabled=True)) as client:
+            response = client.get(
+                '/private',
+                headers={'x-forwarded-proto': 'http', 'host': 'app.example.com:443'},
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 301
+            # The port belongs to the HTTP request, not to the https:// target.
+            assert response.headers['location'] == 'https://app.example.com/private'
+
+    def test_probe_paths_are_never_redirected(self) -> None:
+        """A probe reaches the container directly, without `X-Forwarded-Proto`.
+
+        Redirecting it makes a healthy container report itself dead -- the Docker HEALTHCHECK
+        follows the 301 to a host it cannot resolve, or gets a flat 400 when no `PUBLIC_HOST`
+        is configured.
+        """
+        with TestClient(self._make_app(enabled=True)) as client:
+            response = client.get('/health/live', follow_redirects=False)
+
+            assert response.status_code == 200
+            assert response.json() == {'status': 'alive'}
+
     def test_preserves_query_string(self) -> None:
         with TestClient(self._make_app(enabled=True)) as client:
             response = client.get(
-                '/health?code=abc123',
+                '/private?code=abc123',
                 headers={'x-forwarded-proto': 'http'},
                 follow_redirects=False,
             )
@@ -124,12 +159,12 @@ class TestHTTPSRedirectMiddleware:
 
     def test_passes_through_https(self) -> None:
         with TestClient(self._make_app(enabled=True)) as client:
-            response = client.get('/health', headers={'x-forwarded-proto': 'https'})
+            response = client.get('/private', headers={'x-forwarded-proto': 'https'})
 
             assert response.status_code == 200
 
     def test_disabled_middleware_does_not_redirect(self) -> None:
         with TestClient(self._make_app(enabled=False)) as client:
-            response = client.get('/health', headers={'x-forwarded-proto': 'http'})
+            response = client.get('/private', headers={'x-forwarded-proto': 'http'})
 
             assert response.status_code == 200

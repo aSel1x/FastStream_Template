@@ -9,13 +9,16 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 MAX_ATTEMPTS: int = 8
-BACKOFF_BASE_SECONDS: int = 2  # `1 << attempts` below assumes this
 BACKOFF_CAP_SECONDS: int = 300
 
 
 def backoff_delay(attempts: int) -> timedelta:
-    """Exponential backoff, capped, so a broken event retries slower and slower."""
-    # `1 << n` rather than `2**n`: the typeshed signature for int.__pow__ widens to Any.
+    """Exponential backoff, base 2, capped, so a broken event retries slower and slower.
+
+    `1 << n` rather than `2**n`: the typeshed signature for `int.__pow__` widens to `Any`.
+    The base is therefore fixed by the shift and is not configurable; a `BACKOFF_BASE_SECONDS`
+    constant used to sit here claiming otherwise, which nothing read.
+    """
     seconds: int = min(1 << attempts, BACKOFF_CAP_SECONDS)
     return timedelta(seconds=seconds)
 

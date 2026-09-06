@@ -97,6 +97,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No other job parses docker-compose.yaml, so a malformed one reaches contributors
+      # as a failing `make build` -- the very first command in the README.
+      - name: Validate the compose file
+        run: docker compose --env-file .env.dist config --quiet
+
       # The runner's default builder uses the `docker` driver, which cannot export a
       # build cache; `cache-to: type=gha` fails outright without a docker-container
       # builder to write it.
