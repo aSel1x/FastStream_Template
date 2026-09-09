@@ -35,7 +35,7 @@ class AuditLog(BaseEntity):
         ip_address: str | None = None,
         user_agent: str | None = None,
         success: bool = True,
-    ) -> 'AuditLog':
+    ) -> AuditLog:
         return cls(
             id=uuid4(),
             user_id=user_id,

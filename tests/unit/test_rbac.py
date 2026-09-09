@@ -1,24 +1,25 @@
-import pytest
-from uuid import UUID, uuid4
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, call
-from datetime import datetime, UTC
+from uuid import UUID, uuid4
 
-from domain.user.value_objects import Email, HashedPassword, RoleID, RoleName, UserID, Username
+import pytest
+
 from domain.user.entities.rbac import Permission, Role, UserRole
 from domain.user.entities.user import User
 from domain.user.events import (
     RoleCreatedEvent,
-    RoleUpdatedEvent,
     RoleDeletedEvent,
+    RoleUpdatedEvent,
     UserRoleAssignedEvent,
     UserRoleRevokedEvent,
 )
 from domain.user.exceptions import (
-    RoleNotFoundError,
-    RoleAlreadyExistsError,
     PermissionDeniedError,
+    RoleAlreadyExistsError,
+    RoleNotFoundError,
     UserNotFoundError,
 )
+from domain.user.value_objects import Email, HashedPassword, RoleID, RoleName, UserID, Username
 
 
 def _make_user(user_id: UUID | None = None) -> User:
@@ -44,7 +45,7 @@ class TestPermissionEntity:
     def test_immutability(self):
         perm = Permission(name='edit_users')
         with pytest.raises(AttributeError):
-            perm.name = 'changed'
+            setattr(perm, 'name', 'changed')  # noqa: B010 - the point is that it fails
 
     def test_equality(self):
         perm1 = Permission(name='edit_users', description='Can edit')
@@ -159,7 +160,7 @@ class TestRoleEntity:
     def test_immutability_frozen(self):
         role = Role(role_id=RoleID(uuid4()), name=RoleName('test'))
         with pytest.raises(AttributeError):
-            role.name = 'changed'
+            setattr(role, 'name', RoleName('changed'))  # noqa: B010 - the point is that it fails
 
     def test_pull_events_clears_events(self):
         role = Role.create(name=RoleName('tester'))
@@ -181,7 +182,9 @@ class TestUserRoleEntity:
         user_id = uuid4()
         role_id = uuid4()
         admin_id = uuid4()
-        ur = UserRole(user_id=UserID(user_id), role_id=RoleID(role_id), assigned_by=UserID(admin_id))
+        ur = UserRole(
+            user_id=UserID(user_id), role_id=RoleID(role_id), assigned_by=UserID(admin_id)
+        )
         assert ur.assigned_by == UserID(admin_id)
 
     def test_assigned_at_defaults_to_utc_now(self):
@@ -193,7 +196,7 @@ class TestUserRoleEntity:
     def test_immutability(self):
         ur = UserRole(user_id=UserID(uuid4()), role_id=RoleID(uuid4()))
         with pytest.raises(AttributeError):
-            ur.user_id = uuid4()
+            setattr(ur, 'user_id', UserID(uuid4()))  # noqa: B010 - the point is that it fails
 
 
 class TestRBACService:
@@ -233,13 +236,17 @@ class TestRBACService:
         return repo
 
     @pytest.fixture
-    def service(self, mock_user_repo, mock_role_repo, mock_permission_repo, mock_user_role_repo):
+    def service(
+        self, mock_user_repo, mock_role_repo, mock_permission_repo, mock_user_role_repo, uow
+    ):
         from application.user.rbac_service import RBACService
+
         return RBACService(
             user_repo=mock_user_repo,
             role_repo=mock_role_repo,
             permission_repo=mock_permission_repo,
             user_role_repo=mock_user_role_repo,
+            uow=uow,
         )
 
     @pytest.mark.asyncio
@@ -309,7 +316,9 @@ class TestRBACService:
         mock_role_repo.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_assign_role_success(self, service, mock_user_repo, mock_role_repo, mock_user_role_repo):
+    async def test_assign_role_success(
+        self, service, mock_user_repo, mock_role_repo, mock_user_role_repo
+    ):
         user_id = uuid4()
         role_id = uuid4()
         assigned_by = uuid4()
@@ -361,7 +370,9 @@ class TestRBACService:
             await service.assign_role(user_id=UserID(uuid4()), role_id=RoleID(uuid4()))
 
     @pytest.mark.asyncio
-    async def test_assign_role_already_assigned(self, service, mock_user_repo, mock_role_repo, mock_user_role_repo):
+    async def test_assign_role_already_assigned(
+        self, service, mock_user_repo, mock_role_repo, mock_user_role_repo
+    ):
         user_id = uuid4()
         role_id = uuid4()
 
@@ -380,7 +391,9 @@ class TestRBACService:
         user._record_event.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_revoke_role_success(self, service, mock_user_repo, mock_role_repo, mock_user_role_repo):
+    async def test_revoke_role_success(
+        self, service, mock_user_repo, mock_role_repo, mock_user_role_repo
+    ):
         user_id = uuid4()
         role_id = uuid4()
 
@@ -418,7 +431,9 @@ class TestRBACService:
             await service.revoke_role(user_id=UserID(uuid4()), role_id=RoleID(uuid4()))
 
     @pytest.mark.asyncio
-    async def test_revoke_admin_role_raises_error(self, service, mock_user_repo, mock_role_repo, mock_user_role_repo):
+    async def test_revoke_admin_role_raises_error(
+        self, service, mock_user_repo, mock_role_repo, mock_user_role_repo
+    ):
         user_id = uuid4()
         role_id = uuid4()
 
@@ -452,10 +467,12 @@ class TestRBACService:
         assert len(roles) == 2
         assert roles[0].role_id == RoleID(role1_id)
         assert roles[1].role_id == RoleID(role2_id)
-        mock_role_repo.acquire_by_id.assert_has_calls([
-            call(RoleID(role1_id)),
-            call(RoleID(role2_id)),
-        ])
+        mock_role_repo.acquire_by_id.assert_has_calls(
+            [
+                call(RoleID(role1_id)),
+                call(RoleID(role2_id)),
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_get_user_roles_empty(self, service, mock_user_role_repo, mock_role_repo):
@@ -464,7 +481,9 @@ class TestRBACService:
         assert roles == []
 
     @pytest.mark.asyncio
-    async def test_get_user_roles_skips_missing_roles(self, service, mock_user_role_repo, mock_role_repo):
+    async def test_get_user_roles_skips_missing_roles(
+        self, service, mock_user_role_repo, mock_role_repo
+    ):
         user_id = uuid4()
         role1_id = uuid4()
 
@@ -526,7 +545,9 @@ class TestRBACService:
         await service.require_permission(UserID(user_id), 'edit_posts')
 
     @pytest.mark.asyncio
-    async def test_require_permission_raises_error(self, service, mock_user_role_repo, mock_role_repo):
+    async def test_require_permission_raises_error(
+        self, service, mock_user_role_repo, mock_role_repo
+    ):
         user_id = uuid4()
         role_id = uuid4()
 
@@ -540,7 +561,9 @@ class TestRBACService:
             await service.require_permission(UserID(user_id), 'edit_posts')
 
     @pytest.mark.asyncio
-    async def test_add_permission_to_role_success(self, service, mock_role_repo, mock_permission_repo):
+    async def test_add_permission_to_role_success(
+        self, service, mock_role_repo, mock_permission_repo
+    ):
         role_id = uuid4()
         permission_name = 'edit_posts'
 
@@ -558,7 +581,9 @@ class TestRBACService:
         assert events[0].updated_fields == ('permissions',)
 
     @pytest.mark.asyncio
-    async def test_add_permission_to_role_creates_new_permission(self, service, mock_role_repo, mock_permission_repo):
+    async def test_add_permission_to_role_creates_new_permission(
+        self, service, mock_role_repo, mock_permission_repo
+    ):
         role_id = uuid4()
         permission_name = 'new_perm'
 
@@ -574,7 +599,9 @@ class TestRBACService:
         assert added_perm.name == permission_name
 
     @pytest.mark.asyncio
-    async def test_add_permission_to_role_uses_existing_permission(self, service, mock_role_repo, mock_permission_repo):
+    async def test_add_permission_to_role_uses_existing_permission(
+        self, service, mock_role_repo, mock_permission_repo
+    ):
         role_id = uuid4()
         permission_name = 'existing_perm'
 
@@ -663,7 +690,6 @@ class TestCreateRoleUseCase:
     @pytest.fixture
     def mock_uow(self):
         uow = MagicMock()
-        uow.add_events = MagicMock()
         uow.commit = AsyncMock()
         return uow
 
@@ -681,7 +707,6 @@ class TestCreateRoleUseCase:
         assert result.description == 'Can edit'
         assert result.role_id == role.role_id.to_raw()
         mock_rbac_service.create_role.assert_called_once_with(RoleName('editor'), 'Can edit')
-        mock_uow.add_events.assert_called_once()
         mock_uow.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -723,7 +748,6 @@ class TestAssignRoleUseCase:
     @pytest.fixture
     def mock_uow(self):
         uow = MagicMock()
-        uow.add_events = MagicMock()
         uow.commit = AsyncMock()
         return uow
 
@@ -732,7 +756,6 @@ class TestAssignRoleUseCase:
         from application.user.commands.rbac import AssignRoleInput, AssignRoleUseCase
 
         user = MagicMock()
-        user.pull_events = MagicMock(return_value=[])
         mock_rbac_service.assign_role = AsyncMock(return_value=user)
 
         use_case = AssignRoleUseCase(rbac_service=mock_rbac_service, uow=mock_uow)
@@ -740,19 +763,19 @@ class TestAssignRoleUseCase:
         role_id = uuid4()
         assigned_by = uuid4()
 
-        await use_case(AssignRoleInput(
-            user_id=user_id,
-            role_id=role_id,
-            assigned_by=assigned_by,
-        ))
+        await use_case(
+            AssignRoleInput(
+                user_id=user_id,
+                role_id=role_id,
+                assigned_by=assigned_by,
+            )
+        )
 
         mock_rbac_service.assign_role.assert_called_once_with(
             user_id=UserID(user_id),
             role_id=RoleID(role_id),
             assigned_by=UserID(assigned_by),
         )
-        user.pull_events.assert_called_once()
-        mock_uow.add_events.assert_called_once_with([])
         mock_uow.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -779,7 +802,6 @@ class TestRevokeRoleUseCase:
     @pytest.fixture
     def mock_uow(self):
         uow = MagicMock()
-        uow.add_events = MagicMock()
         uow.commit = AsyncMock()
         return uow
 
@@ -788,7 +810,6 @@ class TestRevokeRoleUseCase:
         from application.user.commands.rbac import RevokeRoleInput, RevokeRoleUseCase
 
         user = MagicMock()
-        user.pull_events = MagicMock(return_value=[])
         mock_rbac_service.revoke_role = AsyncMock(return_value=user)
 
         use_case = RevokeRoleUseCase(rbac_service=mock_rbac_service, uow=mock_uow)
@@ -801,8 +822,6 @@ class TestRevokeRoleUseCase:
             user_id=UserID(user_id),
             role_id=RoleID(role_id),
         )
-        user.pull_events.assert_called_once()
-        mock_uow.add_events.assert_called_once_with([])
         mock_uow.commit.assert_called_once()
 
     @pytest.mark.asyncio

@@ -1,0 +1,16 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/health/live
+  body: none
+  auth: none
+}
+
+docs {
+  Deliberately checks nothing external. A liveness probe that fails when the database blips
+  gets the pod killed instead of letting it wait for the database to come back.
+}

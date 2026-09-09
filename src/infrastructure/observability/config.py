@@ -10,7 +10,7 @@ class ObservabilityConfig:
     otlp_endpoint: str | None = None
 
     @classmethod
-    def from_environ(cls) -> 'ObservabilityConfig':
+    def from_environ(cls) -> ObservabilityConfig:
         return cls(
             enabled=getenv('OTEL_ENABLED', 'false').lower() == 'true',
             service_name=getenv('OTEL_SERVICE_NAME', 'backend-template'),

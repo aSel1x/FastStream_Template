@@ -1,0 +1,37 @@
+name: Feature request
+description: Something the service should be able to do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do that you cannot do today? Describe the situation rather than
+        the solution — it often has a simpler answer than the one you had in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you considered instead
+      description: Including doing nothing, or handling it outside this service.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      description: >
+        This is a login and consent provider for Ory Hydra, not an identity platform. SCIM,
+        social login, multi-tenancy, an admin web UI and passkeys are explicit non-goals
+        (see ARCHITECTURE.md).
+      options:
+        - label: I have read the non-goals and this is not one of them

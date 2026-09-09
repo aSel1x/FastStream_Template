@@ -33,15 +33,14 @@ class TestEventToActionCompleteness:
         unaccounted = [
             cls.__name__
             for cls in _all_event_classes()
-            if cls.__name__ not in event_handler_module._EVENT_TO_ACTION
-            and cls.__name__ not in NOT_AUDITED
+            if cls not in event_handler_module.EVENT_TO_ACTION and cls.__name__ not in NOT_AUDITED
         ]
-        assert unaccounted == [], f'Event(s) missing from _EVENT_TO_ACTION: {unaccounted}'
+        assert unaccounted == [], f'Event(s) missing from EVENT_TO_ACTION: {unaccounted}'
 
     def test_every_mapped_event_type_still_exists(self):
-        known = {cls.__name__ for cls in _all_event_classes()}
-        stale = [name for name in event_handler_module._EVENT_TO_ACTION if name not in known]
-        assert stale == [], f'_EVENT_TO_ACTION references removed event(s): {stale}'
+        known = set(_all_event_classes())
+        stale = [cls.__name__ for cls in event_handler_module.EVENT_TO_ACTION if cls not in known]
+        assert stale == [], f'EVENT_TO_ACTION references removed event(s): {stale}'
 
 
 class TestAuditEventHandler:
@@ -63,8 +62,12 @@ class TestAuditEventHandler:
         repo = AsyncMock()
         handler = AuditEventHandler(repo)
 
-        await handler.handle(user_events.PasswordResetRequestedEvent(
-            user_id=uuid4(), email='a@b.com', reset_token='tok',
-        ))
+        await handler.handle(
+            user_events.PasswordResetRequestedEvent(
+                user_id=uuid4(),
+                email='a@b.com',
+                reset_token='tok',
+            )
+        )
 
         repo.add.assert_not_awaited()

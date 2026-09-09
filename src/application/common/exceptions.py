@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import ClassVar, final, override
 
 from domain.common.exceptions import BaseAppError
@@ -11,21 +12,25 @@ class BaseApplicationError(BaseAppError):
 
 
 @final
+@dataclass(eq=False)
 class ConfigurationError(BaseApplicationError):
-    status: ClassVar[int] = 500
+    """The service is misconfigured. Raised at startup so it fails fast, not at first use."""
 
-    def __init__(self, message: str) -> None:
-        self._detail = message
-        super().__init__()
+    status: ClassVar[int] = 500
+    message: str = ''
 
     @property
     @override
     def detail(self) -> str:
-        return self._detail
+        return self.message or 'The service is misconfigured'
 
 
+@final
+@dataclass(eq=False)
 class TooManyLoginAttemptsError(BaseApplicationError):
     status: ClassVar[int] = 429
+    #: Seconds until the caller may try again, surfaced as the Retry-After header.
+    retry_after_seconds: int | None = None
 
     @property
     @override
@@ -34,14 +39,12 @@ class TooManyLoginAttemptsError(BaseApplicationError):
 
 
 @final
+@dataclass(eq=False)
 class OAuthClientNotFoundError(BaseApplicationError):
     status: ClassVar[int] = 404
-
-    def __init__(self, client_id: str) -> None:
-        self._client_id = client_id
-        super().__init__()
+    client_id: str = ''
 
     @property
     @override
     def detail(self) -> str:
-        return f'OAuth client "{self._client_id}" not found'
+        return f'OAuth client "{self.client_id}" not found'

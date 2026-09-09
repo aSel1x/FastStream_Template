@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 from uuid import UUID
 
 from domain.user.interfaces.persistence.readers import SessionReadDTO, SessionReader
@@ -35,7 +35,7 @@ class GetUserSessionsUseCase:
         all_sessions = await self._session_reader.get_by_user_id(UserID(user_id))
         total = len(all_sessions)
 
-        paginated = all_sessions[offset:offset + limit]
+        paginated = all_sessions[offset : offset + limit]
 
         return SessionsPage(
             sessions=paginated,

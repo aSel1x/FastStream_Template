@@ -13,7 +13,7 @@ class CacheConfig:
     redis_url: str = 'redis://localhost:6379/0'
 
     @classmethod
-    def from_environ(cls) -> 'CacheConfig':
+    def from_environ(cls) -> CacheConfig:
         backend = getenv('CACHE_BACKEND', 'memory')
         if backend not in ('memory', 'redis'):
             raise ConfigurationError(f"CACHE_BACKEND must be 'memory' or 'redis', got {backend!r}")

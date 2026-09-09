@@ -1,0 +1,25 @@
+meta {
+  name: Confirm 2FA
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/v1/auth/2fa/confirm
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "123456"
+  }
+}
+
+docs {
+  Activates the enrolment started by `Enable 2FA`. Until this succeeds the second factor is
+  pending and login is unaffected.
+
+  This step exists so that a user whose authenticator failed to record the secret is not
+  locked out of their own account with no way back in.
+}

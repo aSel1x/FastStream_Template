@@ -4,6 +4,7 @@ from os import getenv
 from typing import Literal, final
 
 from application.common.exceptions import ConfigurationError
+from application.common.interfaces.system.rate_limiter import RateLimitResult
 
 RateLimitBackend = Literal['memory', 'redis']
 
@@ -20,10 +21,12 @@ class RateLimitConfig:
     max_keys: int = 10000
 
     @classmethod
-    def from_environ(cls) -> 'RateLimitConfig':
+    def from_environ(cls) -> RateLimitConfig:
         backend = getenv('RATE_LIMIT_BACKEND', 'memory')
         if backend not in ('memory', 'redis'):
-            raise ConfigurationError(f"RATE_LIMIT_BACKEND must be 'memory' or 'redis', got {backend!r}")
+            raise ConfigurationError(
+                f"RATE_LIMIT_BACKEND must be 'memory' or 'redis', got {backend!r}"
+            )
 
         return cls(
             backend=backend,
@@ -44,7 +47,7 @@ class InMemoryRateLimiter:
         self._buckets: dict[str, list[datetime]] = {}
         self._last_cleanup = datetime.now(UTC)
 
-    async def check(self, key: str) -> tuple[bool, int, datetime | None]:
+    async def check(self, key: str) -> RateLimitResult:
         self._maybe_cleanup()
 
         now = datetime.now(UTC)
@@ -57,10 +60,14 @@ class InMemoryRateLimiter:
 
         if len(bucket) >= self._config.max_requests:
             reset_at = min(bucket) + timedelta(seconds=self._config.window_seconds)
-            return False, 0, reset_at
+            return RateLimitResult(allowed=False, remaining=0, reset_at=reset_at)
 
         bucket.append(now)
-        return True, remaining, now + timedelta(seconds=self._config.window_seconds)
+        return RateLimitResult(
+            allowed=True,
+            remaining=remaining,
+            reset_at=now + timedelta(seconds=self._config.window_seconds),
+        )
 
     async def reset(self, key: str) -> None:
         _ = self._buckets.pop(key, None)
@@ -74,15 +81,14 @@ class InMemoryRateLimiter:
         window_start = now - timedelta(seconds=self._config.window_seconds * 2)
 
         expired_keys = [
-            k for k, v in self._buckets.items()
-            if not v or all(ts < window_start for ts in v)
+            k for k, v in self._buckets.items() if not v or all(ts < window_start for ts in v)
         ]
         for k in expired_keys:
             del self._buckets[k]
 
         if len(self._buckets) > self._config.max_keys:
             sorted_keys = sorted(self._buckets.keys(), key=lambda k: self._buckets[k])
-            for k in sorted_keys[:len(self._buckets) - self._config.max_keys]:
+            for k in sorted_keys[: len(self._buckets) - self._config.max_keys]:
                 del self._buckets[k]
 
 
@@ -137,7 +143,8 @@ class InMemoryLoginAttemptLimiter:
         window_start = now - timedelta(seconds=self._config.lockout_seconds * 2)
 
         expired_ips = [
-            ip for ip, attempts in self._attempts.items()
+            ip
+            for ip, attempts in self._attempts.items()
             if not attempts or all(ts < window_start for ts in attempts)
         ]
         for ip in expired_ips:
@@ -145,5 +152,5 @@ class InMemoryLoginAttemptLimiter:
 
         if len(self._attempts) > self._config.max_keys:
             sorted_ips = sorted(self._attempts.keys(), key=lambda ip: self._attempts[ip])
-            for ip in sorted_ips[:len(self._attempts) - self._config.max_keys]:
+            for ip in sorted_ips[: len(self._attempts) - self._config.max_keys]:
                 del self._attempts[ip]

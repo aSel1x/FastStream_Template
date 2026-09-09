@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/aSel1x/Backend_Template/security/advisories/new
+    about: Report privately. Please do not open a public issue for anything exploitable.
+  - name: Ory Hydra itself
+    url: https://github.com/ory/hydra/issues
+    about: Token issuance, signing keys and the OAuth2 protocol surface belong to Hydra.

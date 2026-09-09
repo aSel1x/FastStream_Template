@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if error %}Something went wrong{% else %}All set{% endif %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f6f6; color: #13191c;
+           display: grid; place-items: center; min-height: 100vh; margin: 0; }
+    .card { background: #fff; border: 1px solid #d9e0e0; border-radius: 6px; padding: 2rem;
+            max-width: 26rem; }
+    h1 { font-size: 1.15rem; margin: 0 0 .6rem; }
+    p { margin: 0; color: #43514f; line-height: 1.6; }
+    .error { color: #9e2018; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    {% if error %}
+      <h1 class="error">Something went wrong</h1>
+      <p>{{ error }}</p>
+    {% else %}
+      <h1>All set</h1>
+      <p>{{ message }}</p>
+    {% endif %}
+  </main>
+</body>
+</html>

@@ -3,12 +3,12 @@ import json
 import httpx
 import pytest
 
+from application.common.interfaces.acl.hydra_admin import ProviderClientNotFoundError
 from infrastructure.hydra.client import HydraAdminClient
 from infrastructure.hydra.config import HydraConfig
 from infrastructure.hydra.exceptions import (
     HydraChallengeGoneError,
     HydraChallengeNotFoundError,
-    HydraClientNotFoundError,
 )
 from infrastructure.hydra.schemas import HydraClientCreate
 
@@ -24,15 +24,18 @@ class TestLoginRequest:
     async def test_get_login_request_parses_fields(self):
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.url.params['login_challenge'] == 'chal-1'
-            return httpx.Response(200, json={
-                'challenge': 'chal-1',
-                'client': {'client_id': 'my-client', 'client_name': 'My App'},
-                'requested_scope': ['openid', 'profile'],
-                'requested_access_token_audience': [],
-                'skip': True,
-                'subject': 'user-1',
-                'session_id': 'sess-1',
-            })
+            return httpx.Response(
+                200,
+                json={
+                    'challenge': 'chal-1',
+                    'client': {'client_id': 'my-client', 'client_name': 'My App'},
+                    'requested_scope': ['openid', 'profile'],
+                    'requested_access_token_audience': [],
+                    'skip': True,
+                    'subject': 'user-1',
+                    'session_id': 'sess-1',
+                },
+            )
 
         result = await _client(handler).get_login_request('chal-1')
         assert result.skip is True
@@ -59,7 +62,10 @@ class TestLoginRequest:
             return httpx.Response(200, json={'redirect_to': 'http://hydra/oauth2/auth?x=1'})
 
         result = await _client(handler).accept_login_request(
-            'chal-1', subject='user-1', remember=True, context={'user_id': 'user-1'},
+            'chal-1',
+            subject='user-1',
+            remember=True,
+            context={'user_id': 'user-1'},
         )
         assert result.redirect_to == 'http://hydra/oauth2/auth?x=1'
 
@@ -97,7 +103,9 @@ class TestConsentRequest:
         def handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             assert body['error'] == 'access_denied'
-            return httpx.Response(200, json={'redirect_to': 'http://client/callback?error=access_denied'})
+            return httpx.Response(
+                200, json={'redirect_to': 'http://client/callback?error=access_denied'}
+            )
 
         result = await _client(handler).reject_consent_request('chal-2', error='access_denied')
         assert 'error=access_denied' in result.redirect_to
@@ -108,11 +116,20 @@ class TestIntrospection:
     async def test_introspect_active_token(self):
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.url.path == '/admin/oauth2/introspect'
-            return httpx.Response(200, json={
-                'active': True, 'sub': 'user-1', 'client_id': 'my-client',
-                'scope': 'openid profile', 'aud': ['my-client'], 'exp': 123, 'iat': 100,
-                'token_type': 'access_token', 'ext': {'session_id': 'sess-1'},
-            })
+            return httpx.Response(
+                200,
+                json={
+                    'active': True,
+                    'sub': 'user-1',
+                    'client_id': 'my-client',
+                    'scope': 'openid profile',
+                    'aud': ['my-client'],
+                    'exp': 123,
+                    'iat': 100,
+                    'token_type': 'access_token',
+                    'ext': {'session_id': 'sess-1'},
+                },
+            )
 
         result = await _client(handler).introspect_token('some-token')
         assert result.active is True
@@ -136,21 +153,31 @@ class TestClients:
             body = json.loads(request.content)
             assert body['scope'] == 'openid profile'
             assert body['token_endpoint_auth_method'] == 'client_secret_basic'
-            return httpx.Response(200, json={
-                'client_id': 'new-client', 'client_name': 'New App', 'client_secret': 'shh',
-                'redirect_uris': ['http://app/cb'], 'grant_types': ['authorization_code'],
-                'response_types': ['code'], 'scope': 'openid profile',
-                'token_endpoint_auth_method': 'client_secret_basic', 'created_at': '2026-01-01T00:00:00Z',
-            })
+            return httpx.Response(
+                200,
+                json={
+                    'client_id': 'new-client',
+                    'client_name': 'New App',
+                    'client_secret': 'shh',
+                    'redirect_uris': ['http://app/cb'],
+                    'grant_types': ['authorization_code'],
+                    'response_types': ['code'],
+                    'scope': 'openid profile',
+                    'token_endpoint_auth_method': 'client_secret_basic',
+                    'created_at': '2026-01-01T00:00:00Z',
+                },
+            )
 
-        result = await _client(handler).create_client(HydraClientCreate(
-            client_name='New App',
-            redirect_uris=['http://app/cb'],
-            grant_types=['authorization_code'],
-            response_types=['code'],
-            scope=['openid', 'profile'],
-            token_endpoint_auth_method='client_secret_basic',
-        ))
+        result = await _client(handler).create_client(
+            HydraClientCreate(
+                client_name='New App',
+                redirect_uris=['http://app/cb'],
+                grant_types=['authorization_code'],
+                response_types=['code'],
+                scope=['openid', 'profile'],
+                token_endpoint_auth_method='client_secret_basic',
+            )
+        )
         assert result.client_id == 'new-client'
         assert result.scope == ['openid', 'profile']
         assert result.client_secret == 'shh'
@@ -168,22 +195,37 @@ class TestClients:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(404, text='not found')
 
-        with pytest.raises(HydraClientNotFoundError):
+        # The adapter presents Hydra's 404 as the port's own error, so nothing above
+        # infrastructure has to know which authorization server is behind it.
+        with pytest.raises(ProviderClientNotFoundError):
             await _client(handler).delete_client('missing')
 
     @pytest.mark.asyncio
     async def test_list_clients_parses_multiple(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json=[
-                {
-                    'client_id': 'c1', 'client_name': 'App 1', 'redirect_uris': [], 'grant_types': [],
-                    'response_types': [], 'scope': 'openid', 'token_endpoint_auth_method': 'none',
-                },
-                {
-                    'client_id': 'c2', 'client_name': 'App 2', 'redirect_uris': [], 'grant_types': [],
-                    'response_types': [], 'scope': '', 'token_endpoint_auth_method': 'client_secret_basic',
-                },
-            ])
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        'client_id': 'c1',
+                        'client_name': 'App 1',
+                        'redirect_uris': [],
+                        'grant_types': [],
+                        'response_types': [],
+                        'scope': 'openid',
+                        'token_endpoint_auth_method': 'none',
+                    },
+                    {
+                        'client_id': 'c2',
+                        'client_name': 'App 2',
+                        'redirect_uris': [],
+                        'grant_types': [],
+                        'response_types': [],
+                        'scope': '',
+                        'token_endpoint_auth_method': 'client_secret_basic',
+                    },
+                ],
+            )
 
         result = await _client(handler).list_clients()
         assert [c.client_id for c in result] == ['c1', 'c2']

@@ -4,7 +4,7 @@ from typing import Protocol
 from uuid import UUID
 
 from domain.user.entities.session import DeviceInfo
-from domain.user.value_objects import TwoFactorSecret, UserID
+from domain.user.value_objects import UserID
 
 
 @dataclass(frozen=True)
@@ -14,7 +14,7 @@ class UserReadDTO:
     email: str | None
     is_email_verified: bool
     is_locked: bool
-    two_factor_secret: TwoFactorSecret | None
+    has_two_factor: bool
 
 
 @dataclass(frozen=True)

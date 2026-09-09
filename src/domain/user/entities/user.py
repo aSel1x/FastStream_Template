@@ -6,21 +6,26 @@ from domain.common.event_dispatcher import DomainEventDispatcher
 from domain.user.events import (
     AccountLockedEvent,
     AccountUnlockedEvent,
-    EmailVerifiedEvent,
     EmailVerificationRequestedEvent,
+    EmailVerifiedEvent,
+    PasswordChangedEvent,
     PasswordResetCompletedEvent,
     PasswordResetRequestedEvent,
-    TwoFactorEnabledEvent,
     TwoFactorDisabledEvent,
+    TwoFactorEnabledEvent,
     UserAuthenticatedEvent,
     UserCreatedEvent,
-    PasswordChangedEvent,
     UserDeletedEvent,
     UserProfileUpdatedEvent,
     UserRoleAssignedEvent,
     UserRoleRevokedEvent,
 )
-from domain.user.exceptions import InvalidCredentialsError, InvalidTokenError
+from domain.user.exceptions import (
+    InvalidCredentialsError,
+    InvalidTokenError,
+    TwoFactorAlreadyEnabledError,
+    TwoFactorNotEnrolledError,
+)
 from domain.user.interfaces.acl.crypt import CryptInterface
 from domain.user.interfaces.acl.two_factor import TwoFactorInterface
 from domain.user.value_objects import (
@@ -52,6 +57,9 @@ class User(DomainEventDispatcher, BaseEntity):
     )
     password_reset_token: PasswordResetToken | None = field(default=None)
     two_factor_secret: TwoFactorSecret | None = field(default=None)
+    #: Optimistic-lock counter. The repository writes conditionally on it, so two concurrent
+    #: requests cannot both consume the same 2FA backup code or lose a failed-login increment.
+    version: int = field(default=0)
 
     @override
     def _identity(self) -> object:
@@ -114,27 +122,31 @@ class User(DomainEventDispatcher, BaseEntity):
         return False, self
 
     def record_failed_login_attempt(
-        self, 
-        max_attempts: int = 5, 
-        lockout_duration_minutes: int = 15
+        self, max_attempts: int = 5, lockout_duration_minutes: int = 15
     ) -> Self:
-        new_lock_info = self.account_lock.record_failed_attempt(max_attempts, lockout_duration_minutes)
+        new_lock_info = self.account_lock.record_failed_attempt(
+            max_attempts, lockout_duration_minutes
+        )
         new_user = self._with(account_lock=new_lock_info)
         if new_lock_info.is_locked and not self.account_lock.is_locked:
-            new_user._record_event(AccountLockedEvent(
-                user_id=self.id.to_raw(),
-                reason='Too many failed login attempts',
-                locked_until=new_lock_info.lock_until,
-            ))
+            new_user._record_event(
+                AccountLockedEvent(
+                    user_id=self.id.to_raw(),
+                    reason='Too many failed login attempts',
+                    locked_until=new_lock_info.lock_until,
+                )
+            )
         return new_user
 
     def record_successful_login(self) -> Self:
         new_lock_info = self.account_lock.record_successful_login()
         user = self._with(account_lock=new_lock_info)
-        user._record_event(UserAuthenticatedEvent(
-            user_id=self.id.to_raw(),
-            username=self.username.to_raw(),
-        ))
+        user._record_event(
+            UserAuthenticatedEvent(
+                user_id=self.id.to_raw(),
+                username=self.username.to_raw(),
+            )
+        )
         return user
 
     def unlock(self) -> Self:
@@ -146,11 +158,13 @@ class User(DomainEventDispatcher, BaseEntity):
     def lock(self, reason: str) -> Self:
         new_lock_info = AccountLockInfo.create_locked(reason)
         user = self._with(account_lock=new_lock_info)
-        user._record_event(AccountLockedEvent(
-            user_id=self.id.to_raw(),
-            reason=reason,
-            locked_until=None,
-        ))
+        user._record_event(
+            AccountLockedEvent(
+                user_id=self.id.to_raw(),
+                reason=reason,
+                locked_until=None,
+            )
+        )
         return user
 
     def verify_email(self, token: str) -> bool:
@@ -159,31 +173,31 @@ class User(DomainEventDispatcher, BaseEntity):
     def mark_email_verified(self) -> Self:
         verified = self.email_verification.mark_verified()
         user = self._with(email_verification=verified)
-        user._record_event(EmailVerifiedEvent(
-            user_id=self.id.to_raw(),
-            email=self.email.to_raw() or '',
-        ))
+        user._record_event(
+            EmailVerifiedEvent(
+                user_id=self.id.to_raw(),
+                email=self.email.to_raw() or '',
+            )
+        )
         return user
 
     def request_password_reset(self, expires_in_hours: int = 1) -> Self:
         secure_token = SecureToken.create(expires_in_hours=expires_in_hours)
-        reset_token = PasswordResetToken(
-            token=secure_token.value,
-            created_at=secure_token.created_at,
-            expires_at=secure_token.expires_at,
-        )
+        reset_token = PasswordResetToken.create(secure_token.value, expires_in_hours)
         user = self._with(password_reset_token=reset_token)
-        user._record_event(PasswordResetRequestedEvent(
-            user_id=self.id.to_raw(),
-            email=self.email.to_raw() or '',
-            reset_token=secure_token.value,
-        ))
+        user._record_event(
+            PasswordResetRequestedEvent(
+                user_id=self.id.to_raw(),
+                email=self.email.to_raw() or '',
+                reset_token=secure_token.value,
+            )
+        )
         return user
 
     def reset_password(self, token: str, new_hashed_password: HashedPassword) -> Self:
         if not self.password_reset_token or not self.password_reset_token.is_valid():
             raise InvalidTokenError('Invalid or expired password reset token')
-        if self.password_reset_token.token != token:
+        if not self.password_reset_token.matches(token):
             raise InvalidTokenError('Invalid password reset token')
 
         user = self._with(
@@ -194,14 +208,36 @@ class User(DomainEventDispatcher, BaseEntity):
         user._record_event(PasswordResetCompletedEvent(user_id=self.id.to_raw()))
         return user
 
-    def enable_two_factor(self, two_factor: TwoFactorInterface) -> Self:
-        secret = TwoFactorSecret.create(two_factor.generate_secret())
-        enabled_secret = secret.enable()
-        user = self._with(two_factor_secret=enabled_secret)
-        user._record_event(TwoFactorEnabledEvent(
-            user_id=self.id.to_raw(),
-            backup_codes=secret.backup_codes,
-        ))
+    def begin_two_factor_enrolment(
+        self, two_factor: TwoFactorInterface
+    ) -> tuple[Self, tuple[str, ...]]:
+        """Start enrolment: generate a secret, but leave the factor inactive.
+
+        Activating immediately locked out anyone whose authenticator failed to record the
+        secret. The factor only becomes real once `confirm_two_factor` sees a valid code.
+
+        The recovery codes are returned rather than stored: only their hashes are kept, so
+        this is the one and only moment they exist in readable form.
+        """
+        secret, codes = TwoFactorSecret.create(two_factor.generate_secret())
+        return self._with(two_factor_secret=secret), codes
+
+    def confirm_two_factor(self, code: str, two_factor: TwoFactorInterface) -> Self:
+        """Activate a pending enrolment once the user proves they can generate a code."""
+        if self.two_factor_secret is None:
+            raise TwoFactorNotEnrolledError()
+        if self.two_factor_secret.enabled_at is not None:
+            raise TwoFactorAlreadyEnabledError()
+        if not two_factor.verify_code(self.two_factor_secret.secret, code):
+            raise InvalidCredentialsError('Invalid two-factor code')
+
+        user = self._with(two_factor_secret=self.two_factor_secret.enable())
+        user._record_event(
+            TwoFactorEnabledEvent(
+                user_id=self.id.to_raw(),
+                codes_issued=self.two_factor_secret.remaining_backup_codes(),
+            )
+        )
         return user
 
     def disable_two_factor(self) -> Self:
@@ -234,11 +270,13 @@ class User(DomainEventDispatcher, BaseEntity):
                     updated_fields=('email',),
                 )
             )
-            user._record_event(EmailVerificationRequestedEvent(
-                user_id=self.id.to_raw(),
-                email=new_email.to_raw() or '',
-                verification_token=secure_token.value,
-            ))
+            user._record_event(
+                EmailVerificationRequestedEvent(
+                    user_id=self.id.to_raw(),
+                    email=new_email.to_raw() or '',
+                    verification_token=secure_token.value,
+                )
+            )
             return user
         return self
 
@@ -251,20 +289,24 @@ class User(DomainEventDispatcher, BaseEntity):
 
     def assign_role(self, role_id: RoleID, assigned_by: UserID | None = None) -> Self:
         user = self._with()
-        user._record_event(UserRoleAssignedEvent(
-            user_id=self.id.to_raw(),
-            role_id=role_id.to_raw(),
-            assigned_by=assigned_by.to_raw() if assigned_by else None,
-        ))
+        user._record_event(
+            UserRoleAssignedEvent(
+                user_id=self.id.to_raw(),
+                role_id=role_id.to_raw(),
+                assigned_by=assigned_by.to_raw() if assigned_by else None,
+            )
+        )
         return user
 
     def revoke_role(self, role_id: RoleID) -> Self:
         user = self._with()
-        user._record_event(UserRoleRevokedEvent(
-            user_id=self.id.to_raw(),
-            role_id=role_id.to_raw(),
-            revoked_by=None,
-        ))
+        user._record_event(
+            UserRoleRevokedEvent(
+                user_id=self.id.to_raw(),
+                role_id=role_id.to_raw(),
+                revoked_by=None,
+            )
+        )
         return user
 
     async def change_password(

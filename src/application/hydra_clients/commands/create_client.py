@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 
 from application.common.interfaces import HydraAdminClientInterface, HydraClientCreate
 
@@ -30,16 +30,20 @@ class CreateOAuthClientUseCase:
     def __init__(self, hydra_client: HydraAdminClientInterface) -> None:
         self._hydra_client = hydra_client
 
-    async def __call__(self, input: CreateOAuthClientInput) -> CreateOAuthClientOutput:
-        client = await self._hydra_client.create_client(HydraClientCreate(
-            client_name=input.client_name,
-            client_uri=input.client_uri,
-            redirect_uris=input.redirect_uris,
-            grant_types=input.grant_types,
-            response_types=['code'] if 'authorization_code' in input.grant_types else [],
-            scope=input.scopes,
-            token_endpoint_auth_method='client_secret_basic' if input.is_confidential else 'none',
-        ))
+    async def __call__(self, data: CreateOAuthClientInput) -> CreateOAuthClientOutput:
+        client = await self._hydra_client.create_client(
+            HydraClientCreate(
+                client_name=data.client_name,
+                client_uri=data.client_uri,
+                redirect_uris=data.redirect_uris,
+                grant_types=data.grant_types,
+                response_types=['code'] if 'authorization_code' in data.grant_types else [],
+                scope=data.scopes,
+                token_endpoint_auth_method='client_secret_basic'
+                if data.is_confidential
+                else 'none',
+            )
+        )
 
         return CreateOAuthClientOutput(
             client_id=client.client_id,
@@ -48,5 +52,5 @@ class CreateOAuthClientUseCase:
             redirect_uris=client.redirect_uris,
             grant_types=client.grant_types,
             scopes=client.scope,
-            is_confidential=client.token_endpoint_auth_method != 'none',
+            is_confidential=client.token_endpoint_auth_method != 'none',  # noqa: S105 - an OAuth2 auth-method name, not a secret
         )

@@ -94,9 +94,10 @@ class AccountLockedError(BaseDomainError):
     @property
     @override
     def detail(self) -> str:
-        if self.user_id is None:
-            return 'Account is locked'
-        return f'Account with "{self.user_id}" is locked due to too many failed login attempts'
+        # Never interpolate the id: this reaches an unauthenticated caller, and the internal
+        # user UUID is exactly what an enumeration attempt is looking for. It stays on the
+        # exception for logging.
+        return 'Account is locked due to too many failed login attempts'
 
 
 @dataclass(eq=False)
@@ -156,3 +157,56 @@ class RoleAlreadyExistsError(BaseDomainError):
         if self.role_name is None:
             return 'Role already exists'
         return f'Role "{self.role_name}" already exists'
+
+
+@dataclass(eq=False)
+class TwoFactorAlreadyEnabledError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_CONFLICT
+
+    @property
+    @override
+    def detail(self) -> str:
+        return 'Two-factor authentication is already enabled; disable it first to re-enrol'
+
+
+@dataclass(eq=False)
+class TwoFactorNotEnrolledError(BaseDomainError):
+    status: ClassVar[int] = _HTTP_BAD_REQUEST
+
+    @property
+    @override
+    def detail(self) -> str:
+        return 'Two-factor authentication is not enrolled'
+
+
+@dataclass(eq=False)
+class ConcurrentModificationError(BaseDomainError):
+    """Someone else wrote this aggregate first.
+
+    Raised when an optimistic-lock update matches no row. Retrying the operation on freshly
+    loaded state is the correct response.
+    """
+
+    status: ClassVar[int] = _HTTP_CONFLICT
+    entity_id: str | None = None
+
+    @property
+    @override
+    def detail(self) -> str:
+        return 'The record was modified concurrently; please retry'
+
+
+@dataclass(eq=False)
+class RefreshTokenReuseError(BaseDomainError):
+    """A refresh token that had already been rotated away was presented again.
+
+    Treated as a leak rather than a mistake: the whole session is revoked, since a legitimate
+    client never replays a token it has already exchanged.
+    """
+
+    status: ClassVar[int] = _HTTP_UNAUTHORIZED
+
+    @property
+    @override
+    def detail(self) -> str:
+        return 'Refresh token was already used; the session has been revoked'

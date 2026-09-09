@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 from uuid import UUID
 
 from domain.user.exceptions import UserNotFoundError
@@ -32,5 +32,5 @@ class GetMeUseCase:
             email=dto.email,
             is_email_verified=dto.is_email_verified,
             is_locked=dto.is_locked,
-            has_two_factor=dto.two_factor_secret is not None and dto.two_factor_secret.enabled_at is not None,
+            has_two_factor=dto.has_two_factor,
         )

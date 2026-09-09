@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 from uuid import UUID
 
 from application.common.interfaces import UnitOfWorkInterface
@@ -29,15 +29,14 @@ class ChangePasswordUseCase:
         self._user_service = user_service
         self._uow = uow
 
-    async def __call__(self, input: ChangePasswordInput) -> ChangePasswordOutput:
-        user = await self._user_service.get_user_by_id(UserID(input.user_id))
-        updated_user = await self._user_service.change_password(
+    async def __call__(self, data: ChangePasswordInput) -> ChangePasswordOutput:
+        user = await self._user_service.get_user_by_id(UserID(data.user_id))
+        _ = await self._user_service.change_password(
             user,
-            PlainPassword(input.old_password),
-            PlainPassword(input.new_password),
+            PlainPassword(data.old_password),
+            PlainPassword(data.new_password),
         )
 
-        self._uow.add_events(updated_user.pull_events())
         await self._uow.commit()
 
         return ChangePasswordOutput(success=True)

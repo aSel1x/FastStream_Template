@@ -25,6 +25,8 @@ ROLE_PERMISSIONS_TABLE = create_table(
     sa.Column('role_id', sa.UUID(as_uuid=True), nullable=False),
     sa.Column('permission_id', sa.UUID(as_uuid=True), nullable=False),
     sa.PrimaryKeyConstraint('role_id', 'permission_id'),
+    # Not the leading column of the PK, so Postgres does not index it automatically.
+    sa.Index('ix_role_permissions_permission_id', 'permission_id'),
     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['permission_id'], ['permissions.id'], ondelete='CASCADE'),
 )
@@ -36,6 +38,8 @@ USER_ROLES_TABLE = create_table(
     sa.Column('assigned_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('assigned_by', sa.UUID(as_uuid=True), nullable=True),
     sa.PrimaryKeyConstraint('user_id', 'role_id'),
+    sa.Index('ix_user_roles_role_id', 'role_id'),
+    sa.Index('ix_user_roles_assigned_by', 'assigned_by'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['assigned_by'], ['users.id'], ondelete='SET NULL'),

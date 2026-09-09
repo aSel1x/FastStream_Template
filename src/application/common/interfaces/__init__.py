@@ -1,6 +1,11 @@
 from .acl import HydraAdminClientInterface, HydraClient, HydraClientCreate
 from .persistence import EventHandler, UnitOfWorkInterface
-from .system import CacheInterface, LoginAttemptLimiterInterface, RateLimiterInterface, UUIDGeneratorInterface
+from .system import (
+    CacheInterface,
+    LoginAttemptLimiterInterface,
+    RateLimiterInterface,
+    UUIDGeneratorInterface,
+)
 
 __all__ = (
     'CacheInterface',
@@ -10,6 +15,6 @@ __all__ = (
     'HydraClientCreate',
     'LoginAttemptLimiterInterface',
     'RateLimiterInterface',
-    'UnitOfWorkInterface',
     'UUIDGeneratorInterface',
+    'UnitOfWorkInterface',
 )

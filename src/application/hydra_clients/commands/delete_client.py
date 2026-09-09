@@ -1,7 +1,8 @@
 from typing import final
+
 from application.common.exceptions import OAuthClientNotFoundError
 from application.common.interfaces import HydraAdminClientInterface
-from infrastructure.hydra import HydraClientNotFoundError
+from application.common.interfaces.acl.hydra_admin import ProviderClientNotFoundError
 
 
 @final
@@ -12,5 +13,5 @@ class DeleteOAuthClientUseCase:
     async def __call__(self, client_id: str) -> None:
         try:
             await self._hydra_client.delete_client(client_id)
-        except HydraClientNotFoundError as e:
+        except ProviderClientNotFoundError as e:
             raise OAuthClientNotFoundError(client_id) from e

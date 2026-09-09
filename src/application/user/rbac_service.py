@@ -1,5 +1,6 @@
 from typing import final
 
+from application.common.interfaces import UnitOfWorkInterface
 from domain.user.entities.rbac import Permission, Role, UserRole
 from domain.user.entities.user import User
 from domain.user.exceptions import (
@@ -28,11 +29,13 @@ class RBACService:
         role_repo: RoleRepositoryInterface,
         permission_repo: PermissionRepositoryInterface,
         user_role_repo: UserRoleRepositoryInterface,
+        uow: UnitOfWorkInterface,
     ) -> None:
         self._user_repo = user_repo
         self._role_repo = role_repo
         self._permission_repo = permission_repo
         self._user_role_repo = user_role_repo
+        self._uow = uow
 
     async def create_role(
         self,
@@ -45,6 +48,7 @@ class RBACService:
 
         role = Role.create(name=name, description=description)
         await self._role_repo.add(role)
+        self._uow.register(role)
         return role
 
     async def delete_role(
@@ -59,6 +63,7 @@ class RBACService:
 
         deleted_role = role.delete()
         await self._role_repo.delete(role_id)
+        self._uow.register(deleted_role)
         return deleted_role
 
     async def assign_role(
@@ -86,7 +91,9 @@ class RBACService:
         )
         await self._user_role_repo.add(user_role)
 
-        return user.assign_role(role_id, assigned_by)
+        updated = user.assign_role(role_id, assigned_by)
+        self._uow.register(updated)
+        return updated
 
     async def revoke_role(
         self,
@@ -106,7 +113,9 @@ class RBACService:
 
         await self._user_role_repo.delete(user_id, role_id)
 
-        return user.revoke_role(role_id)
+        updated = user.revoke_role(role_id)
+        self._uow.register(updated)
+        return updated
 
     async def get_user_roles(self, user_id: UserID) -> list[Role]:
         user_roles = await self._user_role_repo.acquire_by_user_id(user_id)
@@ -120,10 +129,7 @@ class RBACService:
     async def has_permission(self, user_id: UserID, permission: str) -> bool:
         roles = await self.get_user_roles(user_id)
 
-        for role in roles:
-            if role.has_permission(permission):
-                return True
-        return False
+        return any(role.has_permission(permission) for role in roles)
 
     async def require_permission(self, user_id: UserID, permission: str) -> None:
         if not await self.has_permission(user_id, permission):
@@ -145,6 +151,7 @@ class RBACService:
 
         updated_role = role.add_permission(permission)
         await self._role_repo.update(updated_role)
+        self._uow.register(updated_role)
         return updated_role
 
     async def remove_permission_from_role(
@@ -158,6 +165,7 @@ class RBACService:
 
         updated_role = role.remove_permission(permission_name)
         await self._role_repo.update(updated_role)
+        self._uow.register(updated_role)
         return updated_role
 
     async def get_all_roles(self) -> list[Role]:

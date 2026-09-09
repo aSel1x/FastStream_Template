@@ -1,7 +1,9 @@
-from typing import final
 from datetime import UTC, datetime, timedelta
+from typing import final
 
 import redis.asyncio as redis
+
+from application.common.interfaces.system.rate_limiter import RateLimitResult
 
 
 @final
@@ -16,7 +18,7 @@ class RedisRateLimiter:
         self._max_requests = max_requests
         self._window_seconds = window_seconds
 
-    async def check(self, key: str) -> tuple[bool, int, datetime | None]:
+    async def check(self, key: str) -> RateLimitResult:
         now = datetime.now(UTC)
         window_key = f'ratelimit:{key}'
 
@@ -30,10 +32,10 @@ class RedisRateLimiter:
         reset_at = now + timedelta(seconds=ttl if ttl > 0 else self._window_seconds)
 
         if count > self._max_requests:
-            return False, 0, reset_at
+            return RateLimitResult(allowed=False, remaining=0, reset_at=reset_at)
 
         remaining = self._max_requests - count
-        return True, remaining, reset_at
+        return RateLimitResult(allowed=True, remaining=remaining, reset_at=reset_at)
 
     async def reset(self, key: str) -> None:
         _ = await self._redis.delete(f'ratelimit:{key}')

@@ -7,13 +7,21 @@ Covers:
 - SQLAlchemySessionRepo.add(): previously never inserted refresh_tokens rows, so every
   freshly-issued refresh token was unusable (acquire_by_token_hash could never find it).
 """
+
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import Delete, Insert, Update
+
+
+def _table_name(statement: Insert | Delete | Update) -> str:
+    """The table a DML statement targets. `.table` is a FromClause, which may be a Join."""
+    table = statement.table
+    return table.name if isinstance(table, Table) else ''
 
 
 class TestRoleRepoUpdate:
@@ -40,19 +48,19 @@ class TestRoleRepoUpdate:
         statements = [call.args[0] for call in session.execute.await_args_list]
 
         update_stmt = next(s for s in statements if isinstance(s, Update))
-        assert update_stmt.table.name == 'roles'
+        assert _table_name(update_stmt) == 'roles'
         params = update_stmt.compile().params
         assert params['name'] == 'renamed_role'
         assert params['description'] == 'updated description'
 
         role_perm_inserts = [
-            s for s in statements if isinstance(s, Insert) and s.table.name == 'role_permissions'
+            s for s in statements if isinstance(s, Insert) and _table_name(s) == 'role_permissions'
         ]
         assert len(role_perm_inserts) == 1
         assert role_perm_inserts[0].compile().params['permission_id'] == added_id
 
         role_perm_deletes = [
-            s for s in statements if isinstance(s, Delete) and s.table.name == 'role_permissions'
+            s for s in statements if isinstance(s, Delete) and _table_name(s) == 'role_permissions'
         ]
         assert len(role_perm_deletes) == 1
 
@@ -67,7 +75,9 @@ class TestSessionRepoAdd:
         from infrastructure.db.sqlalchemy.repositories.session import SQLAlchemySessionRepo
 
         token = RefreshToken(token_hash=TokenHash(b'x' * 32))
-        session_agg = SessionAggregate.create(UserID(uuid.uuid4()), DeviceInfo()).add_refresh_token(token)
+        session_agg = SessionAggregate.create(UserID(uuid.uuid4()), DeviceInfo()).add_refresh_token(
+            token
+        )
 
         db_session = AsyncMock(spec=AsyncSession)
 

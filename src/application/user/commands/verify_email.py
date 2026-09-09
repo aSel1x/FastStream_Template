@@ -1,15 +1,12 @@
-from typing import final
 from dataclasses import dataclass
-from uuid import UUID
+from typing import final
 
 from application.common.interfaces import UnitOfWorkInterface
 from application.user.services import UserService
-from domain.user.value_objects import UserID
 
 
 @dataclass
 class VerifyEmailInput:
-    user_id: str
     token: str
 
 
@@ -28,13 +25,9 @@ class VerifyEmailUseCase:
         self._user_service = user_service
         self._uow = uow
 
-    async def __call__(self, input: VerifyEmailInput) -> VerifyEmailOutput:
-        user = await self._user_service.verify_email(
-            UserID(UUID(input.user_id)),
-            input.token,
-        )
+    async def __call__(self, data: VerifyEmailInput) -> VerifyEmailOutput:
+        _ = await self._user_service.verify_email(data.token)
 
-        self._uow.add_events(user.pull_events())
         await self._uow.commit()
 
         return VerifyEmailOutput(success=True)

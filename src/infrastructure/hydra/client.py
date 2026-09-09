@@ -3,6 +3,7 @@ from typing import final
 import httpx
 from pydantic import JsonValue, TypeAdapter
 
+from application.common.interfaces.acl.hydra_admin import ProviderClientNotFoundError
 from infrastructure.hydra.config import HydraConfig
 from infrastructure.hydra.exceptions import (
     HydraAdminError,
@@ -23,7 +24,9 @@ from infrastructure.hydra.schemas import (
 _hydra_client_list_adapter = TypeAdapter(list[HydraClient])
 
 
-def _raise_for_status(response: httpx.Response, *, not_found_error: type[HydraAdminError] = HydraAdminError) -> None:
+def _raise_for_status(
+    response: httpx.Response, *, not_found_error: type[HydraAdminError] = HydraAdminError
+) -> None:
     if response.status_code < 400:
         return
     if response.status_code == 404:
@@ -31,6 +34,18 @@ def _raise_for_status(response: httpx.Response, *, not_found_error: type[HydraAd
     if response.status_code == 410:
         raise HydraChallengeGoneError(response.status_code, response.text)
     raise HydraAdminError(response.status_code, response.text)
+
+
+def _raise_client_status(response: httpx.Response) -> None:
+    """Like `_raise_for_status`, but presents Hydra's 404 as the port's own error.
+
+    The anti-corruption boundary: a use case catches `ProviderClientNotFoundError` and stays
+    ignorant of which authorization server is behind the port.
+    """
+    try:
+        _raise_for_status(response, not_found_error=HydraClientNotFoundError)
+    except HydraClientNotFoundError as exc:
+        raise ProviderClientNotFoundError(str(exc)) from exc
 
 
 def _client_to_wire(data: HydraClientCreate) -> dict[str, JsonValue]:
@@ -59,7 +74,8 @@ class HydraAdminClient:
 
     async def get_login_request(self, login_challenge: str) -> HydraLoginRequest:
         response = await self._http.get(
-            '/admin/oauth2/auth/requests/login', params={'login_challenge': login_challenge},
+            '/admin/oauth2/auth/requests/login',
+            params={'login_challenge': login_challenge},
         )
         _raise_for_status(response, not_found_error=HydraChallengeNotFoundError)
         return HydraLoginRequest.model_validate_json(response.text)
@@ -95,7 +111,11 @@ class HydraAdminClient:
         return HydraRedirect.model_validate_json(response.text)
 
     async def reject_login_request(
-        self, login_challenge: str, *, error: str = 'access_denied', error_description: str = '',
+        self,
+        login_challenge: str,
+        *,
+        error: str = 'access_denied',
+        error_description: str = '',
     ) -> HydraRedirect:
         response = await self._http.put(
             '/admin/oauth2/auth/requests/login/reject',
@@ -107,7 +127,8 @@ class HydraAdminClient:
 
     async def get_consent_request(self, consent_challenge: str) -> HydraConsentRequest:
         response = await self._http.get(
-            '/admin/oauth2/auth/requests/consent', params={'consent_challenge': consent_challenge},
+            '/admin/oauth2/auth/requests/consent',
+            params={'consent_challenge': consent_challenge},
         )
         _raise_for_status(response, not_found_error=HydraChallengeNotFoundError)
         return HydraConsentRequest.model_validate_json(response.text)
@@ -144,7 +165,11 @@ class HydraAdminClient:
         return HydraRedirect.model_validate_json(response.text)
 
     async def reject_consent_request(
-        self, consent_challenge: str, *, error: str = 'access_denied', error_description: str = '',
+        self,
+        consent_challenge: str,
+        *,
+        error: str = 'access_denied',
+        error_description: str = '',
     ) -> HydraRedirect:
         response = await self._http.put(
             '/admin/oauth2/auth/requests/consent/reject',
@@ -156,27 +181,31 @@ class HydraAdminClient:
 
     async def get_logout_request(self, logout_challenge: str) -> HydraLogoutRequest:
         response = await self._http.get(
-            '/admin/oauth2/auth/requests/logout', params={'logout_challenge': logout_challenge},
+            '/admin/oauth2/auth/requests/logout',
+            params={'logout_challenge': logout_challenge},
         )
         _raise_for_status(response, not_found_error=HydraChallengeNotFoundError)
         return HydraLogoutRequest.model_validate_json(response.text)
 
     async def accept_logout_request(self, logout_challenge: str) -> HydraRedirect:
         response = await self._http.put(
-            '/admin/oauth2/auth/requests/logout/accept', params={'logout_challenge': logout_challenge},
+            '/admin/oauth2/auth/requests/logout/accept',
+            params={'logout_challenge': logout_challenge},
         )
         _raise_for_status(response, not_found_error=HydraChallengeNotFoundError)
         return HydraRedirect.model_validate_json(response.text)
 
     async def reject_logout_request(self, logout_challenge: str) -> None:
         response = await self._http.put(
-            '/admin/oauth2/auth/requests/logout/reject', params={'logout_challenge': logout_challenge},
+            '/admin/oauth2/auth/requests/logout/reject',
+            params={'logout_challenge': logout_challenge},
         )
         _raise_for_status(response, not_found_error=HydraChallengeNotFoundError)
 
     async def revoke_login_sessions(self, subject: str) -> None:
         response = await self._http.delete(
-            '/admin/oauth2/auth/sessions/login', params={'subject': subject},
+            '/admin/oauth2/auth/sessions/login',
+            params={'subject': subject},
         )
         if response.status_code == 404:
             return
@@ -184,14 +213,15 @@ class HydraAdminClient:
 
     async def revoke_consent_sessions(self, subject: str) -> None:
         response = await self._http.delete(
-            '/admin/oauth2/auth/sessions/consent', params={'subject': subject},
+            '/admin/oauth2/auth/sessions/consent',
+            params={'subject': subject},
         )
         if response.status_code == 404:
             return
         _raise_for_status(response)
 
     async def introspect_token(self, token: str, scope: str | None = None) -> HydraIntrospection:
-        data = {'token': token}
+        data = {'token': token, 'token_type_hint': 'access_token'}
         if scope:
             data['scope'] = scope
         response = await self._http.post('/admin/oauth2/introspect', data=data)
@@ -217,9 +247,9 @@ class HydraAdminClient:
 
     async def delete_client(self, client_id: str) -> None:
         response = await self._http.delete(f'/admin/clients/{client_id}')
-        _raise_for_status(response, not_found_error=HydraClientNotFoundError)
+        _raise_client_status(response)
 
     async def rotate_client_secret(self, client_id: str) -> HydraClient:
         response = await self._http.post(f'/admin/clients/{client_id}/secrets/rotate')
-        _raise_for_status(response, not_found_error=HydraClientNotFoundError)
+        _raise_client_status(response)
         return HydraClient.model_validate_json(response.text)

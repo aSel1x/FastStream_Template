@@ -9,10 +9,10 @@ from .persistence import (
 
 __all__ = (
     'CryptInterface',
-    'TwoFactorInterface',
-    'UserRepositoryInterface',
-    'SessionRepositoryInterface',
     'PermissionRepositoryInterface',
     'RoleRepositoryInterface',
+    'SessionRepositoryInterface',
+    'TwoFactorInterface',
+    'UserRepositoryInterface',
     'UserRoleRepositoryInterface',
 )

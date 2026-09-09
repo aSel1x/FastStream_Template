@@ -1,20 +1,49 @@
-import pytest
-from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
-from domain.user.value_objects import UserID, Username, Email, PlainPassword, HashedPassword, TokenHash
+import pytest
+
+from application.common.interfaces.system.rate_limiter import RateLimitResult
+from domain.user.entities.session import DeviceInfo, SessionAggregate
 from domain.user.entities.user import User
+from domain.user.interfaces.persistence.readers import SessionReadDTO
+from domain.user.value_objects import (
+    Email,
+    HashedPassword,
+    PlainPassword,
+    TokenHash,
+    UserID,
+    Username,
+)
+from infrastructure.cache.memory_cache import InMemoryCache
+from infrastructure.db.memory.uow import InMemoryUoW
+from infrastructure.observability.prometheus_metrics import NullMetrics
+from infrastructure.two_factor_challenge_store import CachedTwoFactorChallengeStore
+
+
+def _with_active_two_factor(user):
+    """Run a user through the full two-step enrolment."""
+    import pyotp
+
+    from infrastructure.two_factor import TwoFactorAuth
+
+    two_factor = TwoFactorAuth()
+    pending, codes = user.begin_two_factor_enrolment(two_factor)
+    assert pending.two_factor_secret is not None
+    enabled = pending.confirm_two_factor(
+        pyotp.TOTP(pending.two_factor_secret.secret).now(), two_factor
+    )
+    return enabled, codes
 
 
 class TestCreateUserUseCase:
     @pytest.fixture
     def mock_user_service(self):
         service = MagicMock()
-        service.create = AsyncMock(return_value=MagicMock(
-            id=UserID(value=uuid4()),
-            pull_events=MagicMock(return_value=[])
-        ))
+        service.create = AsyncMock(
+            return_value=MagicMock(id=UserID(value=uuid4()), pull_events=MagicMock(return_value=[]))
+        )
         return service
 
     @pytest.fixture
@@ -27,7 +56,7 @@ class TestCreateUserUseCase:
     @pytest.fixture
     def mock_rate_limiter(self):
         limiter = AsyncMock()
-        limiter.check = AsyncMock(return_value=(True, 10, None))
+        limiter.check = AsyncMock(return_value=RateLimitResult(True, 10, None))
         return limiter
 
     @pytest.mark.asyncio
@@ -41,23 +70,19 @@ class TestCreateUserUseCase:
             rate_limiter=mock_rate_limiter,
         )
 
-        result = await use_case(CreateUserInput(
-            username="testuser",
-            password="Test@1234",
-            email="test@example.com"
-        ))
+        result = await use_case(
+            CreateUserInput(username='testuser', password='Test@1234', email='test@example.com')
+        )
 
         assert result is not None
 
     @pytest.mark.asyncio
     async def test_create_user_duplicate_username(self, mock_rate_limiter, mock_uow):
-        from domain.user.exceptions import UsernameAlreadyExistsError
         from application.user.commands.create_user import CreateUserInput, CreateUserUseCase
+        from domain.user.exceptions import UsernameAlreadyExistsError
 
         user_service = MagicMock()
-        user_service.create = AsyncMock(
-            side_effect=UsernameAlreadyExistsError("testuser")
-        )
+        user_service.create = AsyncMock(side_effect=UsernameAlreadyExistsError('testuser'))
 
         use_case = CreateUserUseCase(
             user_service=user_service,
@@ -65,12 +90,14 @@ class TestCreateUserUseCase:
             uuid_generator=uuid4,
             rate_limiter=mock_rate_limiter,
         )
-        
+
         with pytest.raises(UsernameAlreadyExistsError):
-            await use_case(CreateUserInput(
-                username="testuser",
-                password="Test@1234",
-            ))
+            await use_case(
+                CreateUserInput(
+                    username='testuser',
+                    password='Test@1234',
+                )
+            )
 
 
 class TestLoginUseCase:
@@ -81,7 +108,7 @@ class TestLoginUseCase:
     @pytest.fixture
     def mock_rate_limiter(self):
         limiter = AsyncMock()
-        limiter.check = AsyncMock(return_value=(True, 10, None))
+        limiter.check = AsyncMock(return_value=RateLimitResult(True, 10, None))
         return limiter
 
     @pytest.fixture
@@ -100,15 +127,17 @@ class TestLoginUseCase:
         return uow
 
     @pytest.mark.asyncio
-    async def test_login_success(self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow):
+    async def test_login_success(
+        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow
+    ):
         from application.user.commands.login import LoginInput, LoginUseCase
 
         user = User.create(
             user_id=UserID(uuid4()),
-            username=Username("testuser"),
-            email=Email("test@example.com"),
-            hashed_password=HashedPassword(b"hashed"),
-            verification_token="token",
+            username=Username('testuser'),
+            email=Email('test@example.com'),
+            hashed_password=HashedPassword(b'hashed'),
+            verification_token='token',
         )
         user = user.mark_email_verified()
 
@@ -117,69 +146,84 @@ class TestLoginUseCase:
         session.expires_at = datetime.now(UTC) + timedelta(days=1)
         session.pull_events = MagicMock(return_value=[])
 
-        mock_user_service.authenticate = AsyncMock(return_value=(user, session, "raw-refresh-token"))
+        mock_user_service.authenticate = AsyncMock(
+            return_value=(user, session, 'raw-refresh-token')
+        )
         mock_user_service.persist_session = AsyncMock()
 
         use_case = LoginUseCase(
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
-        result = await use_case(LoginInput(
-            password="Test@1234",
-            username="testuser",
-            ip_address="127.0.0.1",
-        ))
+        result = await use_case(
+            LoginInput(
+                password='Test@1234',
+                username='testuser',
+                ip_address='127.0.0.1',
+            )
+        )
 
         assert result.user_id == user.id.to_raw()
         assert result.session_id == str(session.session_id)
-        assert result.refresh_token == "raw-refresh-token"
+        assert result.refresh_token == 'raw-refresh-token'
         assert not result.requires_two_factor
         mock_user_service.persist_session.assert_awaited_once_with(session)
-        mock_rate_limiter.check.assert_awaited_once_with("login:127.0.0.1")
+        mock_rate_limiter.check.assert_awaited_once_with('login:127.0.0.1|testuser')
 
     @pytest.mark.asyncio
-    async def test_login_requires_2fa(self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow):
+    async def test_login_requires_2fa(
+        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow
+    ):
         from application.user.commands.login import LoginInput, LoginUseCase
-        from infrastructure.two_factor import TwoFactorAuth
 
         user = User.create(
             user_id=UserID(uuid4()),
-            username=Username("testuser"),
-            email=Email("test@example.com"),
-            hashed_password=HashedPassword(b"hashed"),
-            verification_token="token",
+            username=Username('testuser'),
+            email=Email('test@example.com'),
+            hashed_password=HashedPassword(b'hashed'),
+            verification_token='token',
         )
         user = user.mark_email_verified()
-        user = user.enable_two_factor(TwoFactorAuth())
+        user, _codes = _with_active_two_factor(user)
 
         session = MagicMock()
         session.session_id = uuid4()
         session.pull_events = MagicMock(return_value=[])
 
-        mock_user_service.authenticate = AsyncMock(return_value=(user, session, "raw-refresh-token"))
+        mock_user_service.authenticate = AsyncMock(
+            return_value=(user, session, 'raw-refresh-token')
+        )
         mock_user_service.persist_session = AsyncMock()
 
         use_case = LoginUseCase(
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
-        result = await use_case(LoginInput(
-            password="Test@1234",
-            username="testuser",
-        ))
+        result = await use_case(
+            LoginInput(
+                password='Test@1234',
+                username='testuser',
+            )
+        )
 
         assert result.requires_two_factor
 
     @pytest.mark.asyncio
-    async def test_login_invalid_credentials(self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow):
-        from domain.user.exceptions import InvalidCredentialsError
+    async def test_login_invalid_credentials(
+        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow
+    ):
         from application.user.commands.login import LoginInput, LoginUseCase
+        from domain.user.exceptions import InvalidCredentialsError
 
         mock_user_service.authenticate = AsyncMock(return_value=(None, None, None))
 
@@ -187,41 +231,55 @@ class TestLoginUseCase:
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
         with pytest.raises(InvalidCredentialsError):
-            await use_case(LoginInput(
-                password="Wrong@1234",
-                username="testuser",
-            ))
+            await use_case(
+                LoginInput(
+                    password='Wrong@1234',
+                    username='testuser',
+                )
+            )
 
     @pytest.mark.asyncio
-    async def test_login_rate_limited(self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow):
+    async def test_login_rate_limited(
+        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow
+    ):
         from application.common.exceptions import TooManyLoginAttemptsError
         from application.user.commands.login import LoginInput, LoginUseCase
 
-        mock_rate_limiter.check = AsyncMock(return_value=(False, 0, None))
+        mock_rate_limiter.check = AsyncMock(return_value=RateLimitResult(False, 0, None))
 
         use_case = LoginUseCase(
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
         with pytest.raises(TooManyLoginAttemptsError):
-            await use_case(LoginInput(
-                password="Test@1234",
-                username="testuser",
-                ip_address="127.0.0.1",
-            ))
+            await use_case(
+                LoginInput(
+                    password='Test@1234',
+                    username='testuser',
+                    ip_address='127.0.0.1',
+                )
+            )
 
         mock_user_service.authenticate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_login_blocked_by_ip_login_attempt_lockout(
-        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow,
+        self,
+        mock_user_service,
+        mock_rate_limiter,
+        mock_login_attempt_limiter,
+        mock_uow,
     ):
         from application.common.exceptions import TooManyLoginAttemptsError
         from application.user.commands.login import LoginInput, LoginUseCase
@@ -232,24 +290,32 @@ class TestLoginUseCase:
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
         with pytest.raises(TooManyLoginAttemptsError):
-            await use_case(LoginInput(
-                password="Test@1234",
-                username="testuser",
-                ip_address="127.0.0.1",
-            ))
+            await use_case(
+                LoginInput(
+                    password='Test@1234',
+                    username='testuser',
+                    ip_address='127.0.0.1',
+                )
+            )
 
         mock_user_service.authenticate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_login_failure_records_ip_attempt(
-        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow,
+        self,
+        mock_user_service,
+        mock_rate_limiter,
+        mock_login_attempt_limiter,
+        mock_uow,
     ):
-        from domain.user.exceptions import InvalidCredentialsError
         from application.user.commands.login import LoginInput, LoginUseCase
+        from domain.user.exceptions import InvalidCredentialsError
 
         mock_user_service.authenticate = AsyncMock(return_value=(None, None, None))
 
@@ -257,30 +323,40 @@ class TestLoginUseCase:
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
         with pytest.raises(InvalidCredentialsError):
-            await use_case(LoginInput(
-                password="Wrong@1234",
-                username="testuser",
-                ip_address="127.0.0.1",
-            ))
+            await use_case(
+                LoginInput(
+                    password='Wrong@1234',
+                    username='testuser',
+                    ip_address='127.0.0.1',
+                )
+            )
 
-        mock_login_attempt_limiter.record_failed_login.assert_awaited_once_with("127.0.0.1")
+        mock_login_attempt_limiter.record_failed_login.assert_awaited_once_with(
+            '127.0.0.1|testuser'
+        )
 
     @pytest.mark.asyncio
     async def test_login_success_resets_ip_attempt_counter(
-        self, mock_user_service, mock_rate_limiter, mock_login_attempt_limiter, mock_uow,
+        self,
+        mock_user_service,
+        mock_rate_limiter,
+        mock_login_attempt_limiter,
+        mock_uow,
     ):
         from application.user.commands.login import LoginInput, LoginUseCase
 
         user = User.create(
             user_id=UserID(uuid4()),
-            username=Username("testuser"),
-            email=Email("test@example.com"),
-            hashed_password=HashedPassword(b"hashed"),
-            verification_token="token",
+            username=Username('testuser'),
+            email=Email('test@example.com'),
+            hashed_password=HashedPassword(b'hashed'),
+            verification_token='token',
         )
         user = user.mark_email_verified()
 
@@ -288,23 +364,29 @@ class TestLoginUseCase:
         session.session_id = uuid4()
         session.pull_events = MagicMock(return_value=[])
 
-        mock_user_service.authenticate = AsyncMock(return_value=(user, session, "raw-refresh-token"))
+        mock_user_service.authenticate = AsyncMock(
+            return_value=(user, session, 'raw-refresh-token')
+        )
         mock_user_service.persist_session = AsyncMock()
 
         use_case = LoginUseCase(
             user_service=mock_user_service,
             rate_limiter=mock_rate_limiter,
             login_attempt_limiter=mock_login_attempt_limiter,
+            challenges=CachedTwoFactorChallengeStore(InMemoryCache()),
+            metrics=NullMetrics(),
             uow=mock_uow,
         )
 
-        await use_case(LoginInput(
-            password="Test@1234",
-            username="testuser",
-            ip_address="127.0.0.1",
-        ))
+        await use_case(
+            LoginInput(
+                password='Test@1234',
+                username='testuser',
+                ip_address='127.0.0.1',
+            )
+        )
 
-        mock_login_attempt_limiter.reset.assert_awaited_once_with("127.0.0.1")
+        mock_login_attempt_limiter.reset.assert_awaited_once_with('127.0.0.1|testuser')
 
 
 class TestGetMeUseCase:
@@ -320,7 +402,7 @@ class TestGetMeUseCase:
             email='test@example.com',
             is_email_verified=True,
             is_locked=False,
-            two_factor_secret=None,
+            has_two_factor=False,
         )
 
         reader = MagicMock()
@@ -344,7 +426,7 @@ class TestRateLimiter:
         limiter = InMemoryRateLimiter(config)
 
         for i in range(10):
-            allowed, _, _ = await limiter.check(f"user_{i}")
+            allowed, _, _ = await limiter.check(f'user_{i}')
             assert allowed
 
     @pytest.mark.asyncio
@@ -355,10 +437,10 @@ class TestRateLimiter:
         limiter = InMemoryRateLimiter(config)
 
         for _ in range(5):
-            allowed, _, _ = await limiter.check("test_key")
+            allowed, _, _ = await limiter.check('test_key')
             assert allowed
 
-        allowed, remaining, _ = await limiter.check("test_key")
+        allowed, remaining, _ = await limiter.check('test_key')
         assert not allowed
         assert remaining == 0
 
@@ -377,10 +459,10 @@ class TestRateLimiter:
         limiter = InMemoryRateLimiter(config)
 
         for _ in range(3):
-            await limiter.check("key1")
-            await limiter.check("key2")
+            await limiter.check('key1')
+            await limiter.check('key2')
 
-        limiter._buckets["key1"] = []
+        limiter._buckets['key1'] = []
         limiter._last_cleanup = limiter._last_cleanup - timedelta(seconds=10)
 
         limiter._maybe_cleanup()
@@ -389,44 +471,61 @@ class TestRateLimiter:
 
     @pytest.mark.asyncio
     async def test_login_attempt_limiter_locks_after_attempts(self):
-        from infrastructure.security.rate_limiter import InMemoryLoginAttemptLimiter, RateLimitConfig
+        from infrastructure.security.rate_limiter import (
+            InMemoryLoginAttemptLimiter,
+            RateLimitConfig,
+        )
 
         config = RateLimitConfig(max_login_attempts=5, lockout_seconds=60)
         limiter = InMemoryLoginAttemptLimiter(config)
 
         for _ in range(4):
-            assert not await limiter.record_failed_login("192.168.1.1")
-        assert await limiter.record_failed_login("192.168.1.1")
+            assert not await limiter.record_failed_login('192.168.1.1')
+        assert await limiter.record_failed_login('192.168.1.1')
 
-        assert await limiter.is_locked("192.168.1.1")
+        assert await limiter.is_locked('192.168.1.1')
 
     @pytest.mark.asyncio
     async def test_login_attempt_limiter_reset(self):
-        from infrastructure.security.rate_limiter import InMemoryLoginAttemptLimiter, RateLimitConfig
+        from infrastructure.security.rate_limiter import (
+            InMemoryLoginAttemptLimiter,
+            RateLimitConfig,
+        )
 
         config = RateLimitConfig(max_login_attempts=5, lockout_seconds=60)
         limiter = InMemoryLoginAttemptLimiter(config)
 
         for _ in range(3):
-            await limiter.record_failed_login("192.168.1.2")
+            await limiter.record_failed_login('192.168.1.2')
 
-        await limiter.reset("192.168.1.2")
+        await limiter.reset('192.168.1.2')
 
-        assert not await limiter.is_locked("192.168.1.2")
+        assert not await limiter.is_locked('192.168.1.2')
+
+
+def _session_dto() -> SessionReadDTO:
+    now = datetime.now(UTC)
+    return SessionReadDTO(
+        session_id=uuid4(),
+        created_at=now,
+        expires_at=now + timedelta(days=1),
+        is_revoked=False,
+        device_info=DeviceInfo(),
+    )
 
 
 class TestPagination:
     def test_sessions_page_creation(self):
         from application.user.queries.manage_sessions import SessionsPage
-        
+
         page = SessionsPage(
-            sessions=[{'id': 1}, {'id': 2}],
+            sessions=[_session_dto(), _session_dto()],
             total=10,
             limit=5,
             offset=0,
             has_more=True,
         )
-        
+
         assert len(page.sessions) == 2
         assert page.total == 10
         assert page.has_more
@@ -444,55 +543,55 @@ class TestUserService:
     @pytest.mark.asyncio
     async def test_create_user(self, mock_repos):
         from application.user.services import UserService
-        from domain.user.value_objects import Username, Email
-        
+        from domain.user.value_objects import Email, Username
+
         user_repo, session_repo, crypt = mock_repos
         user_repo.check_username_exists = AsyncMock(return_value=False)
         user_repo.check_email_exists = AsyncMock(return_value=False)
         user_repo.add = AsyncMock()
-        
-        service = UserService(user_repo, session_repo, crypt)
-        
+
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
+
         result = await service.create(
             user_id=UserID(uuid4()),
-            username=Username("testuser"),
-            password=PlainPassword("Test@1234"),
-            email=Email("test@example.com"),
+            username=Username('testuser'),
+            password=PlainPassword('Test@1234'),
+            email=Email('test@example.com'),
         )
-        
+
         assert result is not None
-        assert result.username.to_raw() == "testuser"
+        assert result.username.to_raw() == 'testuser'
 
     @pytest.mark.asyncio
     async def test_create_user_duplicate_username(self, mock_repos):
         from application.user.services import UserService
-        from domain.user.value_objects import Username
         from domain.user.exceptions import UsernameAlreadyExistsError
-        
+        from domain.user.value_objects import Username
+
         user_repo, session_repo, crypt = mock_repos
         user_repo.check_username_exists = AsyncMock(return_value=True)
-        
-        service = UserService(user_repo, session_repo, crypt)
-        
+
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
+
         with pytest.raises(UsernameAlreadyExistsError):
             await service.create(
                 user_id=UserID(uuid4()),
-                username=Username("testuser"),
-                password=PlainPassword("Test@1234"),
+                username=Username('testuser'),
+                password=PlainPassword('Test@1234'),
             )
 
     @pytest.mark.asyncio
     async def test_authenticate_invalid_credentials(self, mock_repos):
         from application.user.services import UserService
-        
+
         user_repo, session_repo, crypt = mock_repos
         user_repo.acquire_by_username = AsyncMock(return_value=None)
-        
-        service = UserService(user_repo, session_repo, crypt)
-        
+
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
+
         user, session, refresh_token = await service.authenticate(
-            password=PlainPassword("Test@1234"),
-            username="testuser",
+            password=PlainPassword('Test@1234'),
+            username='testuser',
         )
 
         assert user is None
@@ -517,7 +616,7 @@ class TestUserService:
         crypt.compare_hashes = AsyncMock(return_value=True)
         session_repo.add = AsyncMock()
 
-        service = UserService(user_repo, session_repo, crypt)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
 
         user, session, refresh_token = await service.authenticate(
             password=PlainPassword('Test@1234'),
@@ -551,7 +650,7 @@ class TestUserService:
         user_repo.acquire_by_username = AsyncMock(return_value=existing_user)
         crypt.compare_hashes = AsyncMock(return_value=False)
 
-        service = UserService(user_repo, session_repo, crypt)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
 
         user, session, refresh_token = await service.authenticate(
             password=PlainPassword('Wrong@1234'),
@@ -560,6 +659,7 @@ class TestUserService:
 
         assert session is None
         assert refresh_token is None
+        assert user is not None
         assert user.account_lock.failed_attempts == 1
         user_repo.update.assert_awaited_once_with(user)
 
@@ -580,11 +680,13 @@ class TestUserService:
         )
         crypt.compare_hashes = AsyncMock(return_value=False)
 
-        service = UserService(user_repo, session_repo, crypt)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
 
         with pytest.raises(InvalidCredentialsError):
             await service.change_password(
-                existing_user, PlainPassword('Wrong@1234'), PlainPassword('New@1234'),
+                existing_user,
+                PlainPassword('Wrong@1234'),
+                PlainPassword('New@1234'),
             )
 
         user_repo.update.assert_not_awaited()
@@ -606,9 +708,11 @@ class TestUserService:
         crypt.compare_hashes = AsyncMock(return_value=True)
         session_repo.acquire_by_user_id = AsyncMock(return_value=[])
 
-        service = UserService(user_repo, session_repo, crypt)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
         updated = await service.change_password(
-            existing_user, PlainPassword('Old@1234'), PlainPassword('New@1234'),
+            existing_user,
+            PlainPassword('Old@1234'),
+            PlainPassword('New@1234'),
         )
 
         assert updated.hashed_password.to_raw() == b'hashed'
@@ -620,7 +724,7 @@ class TestUserService:
         TokenHash.from_raw), not with bcrypt — bcrypt salts randomly, so a hash computed at
         issuance time could never match one recomputed at lookup time."""
         from application.user.services import UserService
-        from domain.user.entities.session import DeviceInfo, RefreshToken, SessionAggregate
+        from domain.user.entities.session import DeviceInfo, RefreshToken
         from domain.user.entities.user import User
         from domain.user.value_objects import Email, HashedPassword, Username
 
@@ -644,10 +748,13 @@ class TestUserService:
         user_repo.acquire_by_id = AsyncMock(return_value=existing_user)
         session_repo.update = AsyncMock()
 
-        service = UserService(user_repo, session_repo, crypt)
-        refreshed_session, user = await service.refresh_session(raw_token)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
+        refreshed_session, user, rotated = await service.refresh_session(raw_token)
+        assert rotated, 'refresh must hand back a new token, not reuse the presented one'
 
-        session_repo.acquire_by_token_hash.assert_awaited_once_with(TokenHash.from_raw(raw_token).to_raw())
+        session_repo.acquire_by_token_hash.assert_awaited_once_with(
+            TokenHash.from_raw(raw_token).to_raw()
+        )
         assert user.id == existing_user.id
         assert refreshed_session.session_id == session.session_id
 
@@ -659,7 +766,7 @@ class TestUserService:
         user_repo, session_repo, crypt = mock_repos
         session_repo.acquire_by_token_hash = AsyncMock(return_value=None)
 
-        service = UserService(user_repo, session_repo, crypt)
+        service = UserService(user_repo, session_repo, crypt, InMemoryUoW())
 
         with pytest.raises(InvalidCredentialsError):
             await service.refresh_session('unknown-token')
@@ -689,10 +796,9 @@ class TestInMemoryCache:
 
         cache = InMemoryCache()
         await cache.set('key', 'value', ttl_seconds=1)
-        cache._store['key'] = (
-            cache._store['key'][0],
-            cache._store['key'][1] - timedelta(seconds=10),
-        )
+        value, expires_at = cache._store['key']
+        assert expires_at is not None
+        cache._store['key'] = (value, expires_at - timedelta(seconds=10))
         assert await cache.get('key') is None
 
     @pytest.mark.asyncio

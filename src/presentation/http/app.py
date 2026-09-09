@@ -1,22 +1,22 @@
-import signal
-import sys
-from contextlib import asynccontextmanager
-from collections.abc import AsyncGenerator
-from functools import partial
-from types import FrameType
 import os
+import secrets
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
+from uuid import UUID
 
-from domain.common.exceptions import BaseAppError, BaseDomainError
-from infrastructure.cache.config import CacheConfig
-from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
-from infrastructure.di import AppProvider
-from infrastructure.hydra import HydraAdminClient, HydraAdminError, HydraClientCreate, HydraConfig
-from infrastructure.oauth.config import OAuthSeedConfig
-from infrastructure.observability import ObservabilityConfig, setup_tracing
-from infrastructure.email import EmailConfig
-from infrastructure.queue import RabbitMQConfig
-from infrastructure.security.rate_limiter import RateLimitConfig
+from dishka import AsyncContainer, make_async_container
+from dishka.integrations.litestar import LitestarProvider, setup_dishka
+from litestar import Litestar
+from litestar.config.csrf import CSRFConfig
+from litestar.middleware import DefineMiddleware
+from litestar.openapi.config import OpenAPIConfig
+from litestar.plugins import PluginProtocol
+from litestar.plugins.jinja import JinjaTemplateEngine
+from litestar.plugins.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
+from litestar.template.config import TemplateConfig
+
 from application.user.commands.rbac import (
     AddPermissionToRoleInput,
     AddPermissionToRoleUseCase,
@@ -27,25 +27,24 @@ from application.user.commands.rbac import (
 )
 from application.user.queries.rbac import GetAllRolesUseCase
 from application.user.rbac_service import RBACService
-import secrets
-from uuid import UUID
-from litestar import Litestar
-from litestar.config.csrf import CSRFConfig
-from litestar.contrib.jinja import JinjaTemplateEngine
-from litestar.contrib.opentelemetry import OpenTelemetryConfig, OpenTelemetryPlugin
-from litestar.middleware import DefineMiddleware
-from litestar.openapi.config import OpenAPIConfig
-from litestar.plugins import PluginProtocol
-from litestar.template.config import TemplateConfig
-from dishka import AsyncContainer, make_async_container
-from dishka.integrations.litestar import LitestarProvider, setup_dishka
-
+from domain.common.exceptions import BaseAppError, BaseDomainError
+from infrastructure.cache.config import CacheConfig
+from infrastructure.db.sqlalchemy.config import SQLAlchemyConfig
+from infrastructure.di import AppProvider
+from infrastructure.email import EmailConfig
+from infrastructure.hydra import HydraAdminClient, HydraAdminError, HydraClientCreate, HydraConfig
+from infrastructure.oauth.config import OAuthSeedConfig
+from infrastructure.observability import setup_tracing
+from infrastructure.observability.logging import configure_logging
+from infrastructure.queue import RabbitMQConfig
+from infrastructure.security.rate_limiter import RateLimitConfig
+from infrastructure.settings import Settings
 from presentation.http.controllers.admin import AdminClientsController
+from presentation.http.controllers.health import HealthController
 from presentation.http.controllers.hydra_bridge import HydraBridgeController
 from presentation.http.controllers.roles import PermissionsController, RolesController
 from presentation.http.controllers.user import (
     AuthController,
-    HealthController,
     SessionController,
     UserController,
 )
@@ -54,10 +53,11 @@ from presentation.http.exception_handlers import (
     domain_exception_handler,
     hydra_admin_error_handler,
 )
+from presentation.http.guards import ADMIN_PERMISSION
 from presentation.http.middleware.cors import AppCORSConfig
 from presentation.http.middleware.https_redirect import HTTPSRedirectMiddleware
 from presentation.http.middleware.request_id import RequestIDMiddleware
-from presentation.http.guards import ADMIN_PERMISSION
+from presentation.http.middleware.security_headers import SecurityHeadersMiddleware
 from presentation.http.security import create_hydra_auth
 
 
@@ -74,16 +74,20 @@ async def seed_oauth_clients(container: AsyncContainer) -> None:
             if existing is not None:
                 continue
 
-            _ = await hydra_client.create_client(HydraClientCreate(
-                client_id=seed.client_id,
-                client_name=seed.client_name,
-                client_secret=seed.client_secret or None,
-                redirect_uris=list(seed.redirect_uris),
-                grant_types=list(seed.grant_types),
-                response_types=['code'] if 'authorization_code' in seed.grant_types else [],
-                scope=list(seed.scopes),
-                token_endpoint_auth_method='client_secret_basic' if seed.is_confidential else 'none',
-            ))
+            _ = await hydra_client.create_client(
+                HydraClientCreate(
+                    client_id=seed.client_id,
+                    client_name=seed.client_name,
+                    client_secret=seed.client_secret or None,
+                    redirect_uris=list(seed.redirect_uris),
+                    grant_types=list(seed.grant_types),
+                    response_types=['code'] if 'authorization_code' in seed.grant_types else [],
+                    scope=list(seed.scopes),
+                    token_endpoint_auth_method='client_secret_basic'
+                    if seed.is_confidential
+                    else 'none',
+                )
+            )
 
 
 async def seed_admin_role(container: AsyncContainer) -> None:
@@ -97,60 +101,60 @@ async def seed_admin_role(container: AsyncContainer) -> None:
             None,
         )
         if role is None:
-            role = await create_role(CreateRoleInput(RBACService.DEFAULT_ROLE_ADMIN, 'Administrator'))
+            role = await create_role(
+                CreateRoleInput(RBACService.DEFAULT_ROLE_ADMIN, 'Administrator')
+            )
         if ADMIN_PERMISSION not in role.permissions:
             role = await add_permission(AddPermissionToRoleInput(role.role_id, ADMIN_PERMISSION))
 
         initial_admin_user_id = os.getenv('INITIAL_ADMIN_USER_ID')
         if initial_admin_user_id:
             assign_role = await request_container.get(AssignRoleUseCase)
-            await assign_role(AssignRoleInput(
-                user_id=UUID(initial_admin_user_id),
-                role_id=role.role_id,
-            ))
+            await assign_role(
+                AssignRoleInput(
+                    user_id=UUID(initial_admin_user_id),
+                    role_id=role.role_id,
+                )
+            )
 
 
 @asynccontextmanager
-async def _lifespan(container: AsyncContainer) -> AsyncGenerator[None, None]:
+async def _lifespan(container: AsyncContainer) -> AsyncGenerator[None]:
     yield
     await container.close()
 
 
 def get_litestar() -> Litestar:
-    hydra_config = HydraConfig.from_environ()
-    rabbitmq_config = RabbitMQConfig.from_environ()
-    sqlalchemy_config = SQLAlchemyConfig.from_environ()
-    email_config = EmailConfig.from_environ()
-    rate_limit_config = RateLimitConfig.from_environ()
-    cache_config = CacheConfig.from_environ()
-    observability_config = ObservabilityConfig.from_environ()
-    tracer_provider = setup_tracing(observability_config)
+    # Everything the environment is read for, validated here and only here. A misconfigured
+    # service now fails at boot with the offending variable named, not at first use.
+    settings = Settings.load()
+    configure_logging()
+    tracer_provider = setup_tracing(settings.observability)
 
     container = make_async_container(
         AppProvider(),
         LitestarProvider(),
         context={
-            HydraConfig: hydra_config,
-            RabbitMQConfig: rabbitmq_config,
-            SQLAlchemyConfig: sqlalchemy_config,
-            EmailConfig: email_config,
-            RateLimitConfig: rate_limit_config,
-            CacheConfig: cache_config,
+            HydraConfig: settings.hydra,
+            RabbitMQConfig: settings.rabbitmq,
+            SQLAlchemyConfig: settings.database,
+            EmailConfig: settings.email,
+            RateLimitConfig: settings.rate_limit,
+            CacheConfig: settings.cache,
         },
     )
 
     hydra_auth = create_hydra_auth()
 
+    is_production = settings.is_production
     cors_config = AppCORSConfig.default()
-
-    is_production = os.getenv('ENV', 'development') == 'production'
     if is_production:
-        allowed_origins = os.getenv('ALLOWED_ORIGINS', '').split(',') if os.getenv('ALLOWED_ORIGINS') else None
+        allowed_origins = (
+            os.getenv('ALLOWED_ORIGINS', '').split(',') if os.getenv('ALLOWED_ORIGINS') else None
+        )
         cors_config = AppCORSConfig.production(allowed_origins)
 
-    app_secret_key = os.getenv('APP_SECRET_KEY')
-    if is_production and not app_secret_key:
-        raise ValueError('APP_SECRET_KEY must be set in production (used to sign CSRF tokens)')
+    app_secret_key = settings.app_secret_key
 
     # Only the server-rendered Hydra login/consent forms need CSRF protection — the JSON API is
     # bearer-token authenticated and carries no ambient browser credentials for CSRF to exploit.
@@ -190,6 +194,7 @@ def get_litestar() -> Litestar:
         middleware=[
             DefineMiddleware(RequestIDMiddleware),
             DefineMiddleware(HTTPSRedirectMiddleware, enabled=is_production),
+            DefineMiddleware(SecurityHeadersMiddleware, hsts=is_production),
         ],
         cors_config=cors_config,
         csrf_config=csrf_config,
@@ -211,14 +216,3 @@ def get_litestar() -> Litestar:
     setup_dishka(container=container, app=app)
 
     return app
-
-
-app = get_litestar()
-
-
-def graceful_shutdown(_signum: int, _frame: FrameType | None) -> None:
-    print('\nReceived SIGTERM, shutting down gracefully...')
-    sys.exit(0)
-
-
-_ = signal.signal(signal.SIGTERM, graceful_shutdown)

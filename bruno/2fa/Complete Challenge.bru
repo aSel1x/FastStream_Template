@@ -1,0 +1,34 @@
+meta {
+  name: Complete Challenge
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/v1/auth/2fa/challenge
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "challenge_token": "{{challenge_token}}",
+    "code": "123456"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200 && res.getBody().refresh_token) {
+    bru.setEnvVar("refresh_token", res.getBody().refresh_token);
+  }
+}
+
+docs {
+  The second half of login for an account with 2FA. Unauthenticated by design: the
+  `challenge_token` issued by `auth/Login (direct API)` *is* the credential, and the session
+  it returns is the first thing the caller can actually use.
+
+  Accepts a TOTP code or one of the recovery codes from enrolment. The challenge is one-shot,
+  expires after five minutes, and is destroyed after five wrong codes. An accepted code cannot
+  be replayed within its validity window.
+}

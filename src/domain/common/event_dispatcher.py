@@ -1,4 +1,4 @@
-from abc import ABC
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -6,11 +6,17 @@ from domain.common.event import BaseEvent
 
 
 @dataclass(frozen=True, eq=False)
-class DomainEventDispatcher(ABC):
-    _events: list[BaseEvent] = field(default_factory=list, init=False)
+class DomainEventDispatcher:
+    """Records domain events on an immutable entity.
+
+    `_events` is excluded from comparison and repr so `dataclasses.replace` can rebuild the
+    entity around it.
+    """
+
+    _events: list[BaseEvent] = field(default_factory=list, init=False, compare=False, repr=False)
 
     def _record_event(self, event: BaseEvent) -> None:
-        object.__setattr__(self, '_events', self._events + [event])
+        object.__setattr__(self, '_events', [*self._events, event])
 
     def pull_events(self) -> list[BaseEvent]:
         events = self._events.copy()
@@ -20,17 +26,14 @@ class DomainEventDispatcher(ABC):
     def has_events(self) -> bool:
         return len(self._events) > 0
 
-    def _own_fields(self) -> dict[str, object]:
-        raw: dict[str, object] = dict(self.__dict__)
-        return {k: v for k, v in raw.items() if not k.startswith('_')}
+    def _with(self, **changes: object) -> Self:
+        """Copy this entity with the given fields replaced, carrying over unpulled events.
 
-    def _with(self, **kwargs: object) -> Self:
-        """Return a copy of this entity with the given fields replaced, carrying over any unpulled events."""
-        cls = type(self)
-        current = self._own_fields()
-        current.update(kwargs)
-        new = cls.__new__(cls)
-        for k, v in current.items():
-            object.__setattr__(new, k, v)
+        Delegates to `dataclasses.replace`, which rejects unknown field names and runs
+        `__post_init__`. The hand-rolled `__new__` + `__setattr__` version this replaces
+        accepted a misspelled field silently: it kept the old value, attached a phantom
+        attribute, and passed both the type checker and any equality-based test.
+        """
+        new = dataclasses.replace(self, **changes)
         object.__setattr__(new, '_events', list(self._events))
         return new

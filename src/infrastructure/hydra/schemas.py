@@ -66,6 +66,9 @@ class HydraRedirect(_HydraModel):
 
 class HydraIntrospection(_HydraModel):
     active: bool = False
+    #: Hydra reports refresh tokens as active too. `token_use` is the only field that tells
+    #: an access token from a refresh token, so it decides whether a bearer is acceptable.
+    token_use: str | None = None
     sub: str | None = None
     client_id: str | None = None
     scope: str = ''
@@ -74,5 +77,3 @@ class HydraIntrospection(_HydraModel):
     iat: int | None = None
     token_type: str | None = None
     ext: dict[str, JsonValue] = Field(default_factory=dict)
-
-

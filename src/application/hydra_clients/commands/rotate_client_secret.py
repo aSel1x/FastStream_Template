@@ -1,9 +1,9 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 
 from application.common.exceptions import OAuthClientNotFoundError
 from application.common.interfaces import HydraAdminClientInterface
-from infrastructure.hydra import HydraClientNotFoundError
+from application.common.interfaces.acl.hydra_admin import ProviderClientNotFoundError
 
 
 @dataclass
@@ -20,7 +20,7 @@ class RotateClientSecretUseCase:
     async def __call__(self, client_id: str) -> RotateClientSecretOutput:
         try:
             client = await self._hydra_client.rotate_client_secret(client_id)
-        except HydraClientNotFoundError as e:
+        except ProviderClientNotFoundError as e:
             raise OAuthClientNotFoundError(client_id) from e
 
         return RotateClientSecretOutput(

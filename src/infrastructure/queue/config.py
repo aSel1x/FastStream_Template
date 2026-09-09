@@ -7,11 +7,11 @@ class RabbitMQConfig:
     host: str = 'localhost'
     port: int = 5672
     user: str = 'guest'
-    password: str = 'guest'
+    password: str = 'guest'  # noqa: S105 - RabbitMQ's documented default, overridden by env
     virtualhost: str = '/'
 
     @classmethod
-    def from_environ(cls) -> 'RabbitMQConfig':
+    def from_environ(cls) -> RabbitMQConfig:
         return RabbitMQConfig(
             host=getenv('RABBITMQ_HOST', 'localhost'),
             port=int(getenv('RABBITMQ_PORT', '5672')),

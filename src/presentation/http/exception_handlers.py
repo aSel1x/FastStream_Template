@@ -1,22 +1,29 @@
-from domain.common.exceptions import BaseAppError, BaseDomainError
-from infrastructure.hydra import HydraAdminError
 from litestar import Request, Response
 from litestar.datastructures.state import State
-from litestar.status_codes import HTTP_400_BAD_REQUEST, HTTP_502_BAD_GATEWAY
+from litestar.status_codes import HTTP_502_BAD_GATEWAY
+
+from application.common.exceptions import TooManyLoginAttemptsError
+from domain.common.exceptions import BaseAppError, BaseDomainError
+from infrastructure.hydra import HydraAdminError
 
 
 def app_exception_handler(
     _request: Request[object, object, State],
     exc: BaseAppError,
 ) -> Response[dict[str, str]]:
-    status_code = getattr(exc, 'status', HTTP_400_BAD_REQUEST)
+    headers: dict[str, str] = {}
+    # The limiter already computes when the caller may retry; without this the client has to
+    # guess, and typically retries immediately.
+    if isinstance(exc, TooManyLoginAttemptsError) and exc.retry_after_seconds is not None:
+        headers['Retry-After'] = str(exc.retry_after_seconds)
 
     return Response(
         content={
             'error': exc.__class__.__name__,
             'detail': exc.detail,
         },
-        status_code=status_code,
+        status_code=exc.status,
+        headers=headers,
     )
 
 
@@ -24,14 +31,12 @@ def domain_exception_handler(
     _request: Request[object, object, State],
     exc: BaseDomainError,
 ) -> Response[dict[str, str]]:
-    status_code = getattr(exc, 'status', HTTP_400_BAD_REQUEST)
-
     return Response(
         content={
             'error': exc.__class__.__name__,
             'detail': exc.detail,
         },
-        status_code=status_code,
+        status_code=exc.status,
     )
 
 

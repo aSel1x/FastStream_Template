@@ -1,21 +1,13 @@
-import pytest
-from uuid import uuid4
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
-from domain.user.value_objects import (
-    AccountLockInfo,
-    Email,
-    HashedPassword,
-    PlainPassword,
-    SecureToken,
-    TokenHash,
-    TwoFactorSecret,
-    UserID,
-    Username,
-)
-from domain.user.entities.user import User
+import pyotp
+import pytest
+
 from domain.user.entities.rbac import WrongPermissionNameError
-from domain.user.entities.session import SessionAggregate, DeviceInfo, RefreshToken
+from domain.user.entities.session import DeviceInfo, RefreshToken, SessionAggregate
+from domain.user.entities.user import User
+from domain.user.events import PasswordResetRequestedEvent
 from domain.user.exceptions import (
     AccountLockedError,
     EmailAlreadyExistsError,
@@ -27,8 +19,19 @@ from domain.user.exceptions import (
     RoleAlreadyExistsError,
     RoleNotFoundError,
     UserIsDeletedError,
-    UserNotFoundError,
     UsernameAlreadyExistsError,
+    UserNotFoundError,
+)
+from domain.user.value_objects import (
+    AccountLockInfo,
+    Email,
+    HashedPassword,
+    PlainPassword,
+    SecureToken,
+    TokenHash,
+    TwoFactorSecret,
+    UserID,
+    Username,
 )
 from domain.user.value_objects.email import WrongEmailValueError
 from domain.user.value_objects.password import WrongPasswordValueError
@@ -46,30 +49,33 @@ class TestUserID:
 
     def test_create_none_user_id(self):
         from domain.user.value_objects.user_id import WrongUserIDError
+
         with pytest.raises(WrongUserIDError):
             UserID(None)
 
 
 class TestUsername:
     def test_create_valid_username(self):
-        username = Username("testuser")
-        assert username.to_raw() == "testuser"
+        username = Username('testuser')
+        assert username.to_raw() == 'testuser'
 
     def test_create_empty_username(self):
         from domain.user.value_objects.username import EmptyUsernameError
+
         with pytest.raises(EmptyUsernameError):
-            Username("")
+            Username('')
 
     def test_create_long_username(self):
         from domain.user.value_objects.username import TooLongUsernameError
+
         with pytest.raises(TooLongUsernameError):
-            Username("a" * 50)
+            Username('a' * 50)
 
 
 class TestEmail:
     def test_create_valid_email(self):
-        email = Email("test@example.com")
-        assert email.to_raw() == "test@example.com"
+        email = Email('test@example.com')
+        assert email.to_raw() == 'test@example.com'
 
     def test_create_none_email(self):
         email = Email(None)
@@ -77,24 +83,27 @@ class TestEmail:
 
     def test_create_invalid_email(self):
         from domain.user.value_objects.email import InvalidEmailFormatError
+
         with pytest.raises(InvalidEmailFormatError):
-            Email("invalid-email")
+            Email('invalid-email')
 
 
 class TestPlainPassword:
     def test_create_valid_password(self):
-        password = PlainPassword("Test@1234")
-        assert password.to_raw() == "Test@1234"
+        password = PlainPassword('Test@1234')
+        assert password.to_raw() == 'Test@1234'
 
     def test_create_weak_password(self):
         from domain.user.value_objects.password import PasswordTooWeakError
+
         with pytest.raises(PasswordTooWeakError):
-            PlainPassword("weakweakwe")
+            PlainPassword('weakweakwe')
 
     def test_create_short_password(self):
         from domain.user.value_objects.password import PasswordTooShortError
+
         with pytest.raises(PasswordTooShortError):
-            PlainPassword("Test1@")
+            PlainPassword('Test1@')
 
 
 class TestSecureToken:
@@ -114,31 +123,35 @@ class TestSecureToken:
 
 class TestTwoFactorSecret:
     def test_create_secret(self):
-        secret = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        secret, codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
         assert secret.secret == 'JBSWY3DPEHPK3PXP'
-        assert len(secret.backup_codes) == 10
+        assert len(codes) == 10
+        assert secret.remaining_backup_codes() == 10
+
+    def test_only_hashes_of_the_backup_codes_are_kept(self):
+        secret, codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        stored = {held.to_raw() for held in secret.backup_code_hashes}
+        assert not stored & {code.encode() for code in codes}
 
     def test_enable_2fa(self):
-        secret = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        secret, _codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
         enabled = secret.enable()
         assert enabled.enabled_at is not None
 
     def test_backup_code_verification(self):
-        secret = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
-        code = secret.backup_codes[0]
-        consumed = secret.consume_backup_code(code)
+        secret, codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        consumed = secret.consume_backup_code(codes[0])
         assert consumed is not None
-        assert code not in consumed.backup_codes
-        assert len(consumed.backup_codes) == len(secret.backup_codes) - 1
+        assert consumed.remaining_backup_codes() == secret.remaining_backup_codes() - 1
 
     def test_backup_code_cannot_be_replayed(self):
-        secret = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
-        code = secret.backup_codes[0]
-        consumed = secret.consume_backup_code(code)
-        assert consumed.consume_backup_code(code) is None
+        secret, codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        consumed = secret.consume_backup_code(codes[0])
+        assert consumed is not None
+        assert consumed.consume_backup_code(codes[0]) is None
 
     def test_unknown_backup_code_returns_none(self):
-        secret = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
+        secret, _codes = TwoFactorSecret.create('JBSWY3DPEHPK3PXP')
         assert secret.consume_backup_code('not-a-real-code') is None
 
 
@@ -153,11 +166,12 @@ class TestTwoFactorAuth:
         from infrastructure.two_factor import TwoFactorAuth
 
         uri = TwoFactorAuth().get_provisioning_uri('JBSWY3DPEHPK3PXP', 'testuser')
-        assert "otpauth://totp/" in uri
-        assert "testuser" in uri
+        assert 'otpauth://totp/' in uri
+        assert 'testuser' in uri
 
     def test_verify_code_accepts_current_totp(self):
         import pyotp
+
         from infrastructure.two_factor import TwoFactorAuth
 
         secret = pyotp.random_base32()
@@ -166,6 +180,7 @@ class TestTwoFactorAuth:
 
     def test_verify_code_rejects_wrong_code(self):
         import pyotp
+
         from infrastructure.two_factor import TwoFactorAuth
 
         secret = pyotp.random_base32()
@@ -185,13 +200,13 @@ class TestAccountLockInfo:
         assert lock.is_locked_out()
 
     def test_record_successful_login(self):
-        lock = AccountLockInfo.create_locked("test", datetime.now(UTC) + timedelta(minutes=15))
+        lock = AccountLockInfo.create_locked('test', datetime.now(UTC) + timedelta(minutes=15))
         unlocked = lock.record_successful_login()
         assert not unlocked.is_locked_out()
         assert unlocked.failed_attempts == 0
 
     def test_unlock_after_timeout(self):
-        lock = AccountLockInfo.create_locked("test", datetime.now(UTC) - timedelta(minutes=1))
+        lock = AccountLockInfo.create_locked('test', datetime.now(UTC) - timedelta(minutes=1))
         assert not lock.is_locked_out()
 
 
@@ -202,15 +217,15 @@ class TestUserAggregate:
 
     @pytest.fixture
     def valid_username(self):
-        return Username("testuser")
+        return Username('testuser')
 
     @pytest.fixture
     def valid_email(self):
-        return Email("test@example.com")
+        return Email('test@example.com')
 
     @pytest.fixture
     def hashed_password(self):
-        return HashedPassword(b"hashed_password")
+        return HashedPassword(b'hashed_password')
 
     def test_create_user(self, valid_user_id, valid_username, valid_email, hashed_password):
         user = User.create(
@@ -218,7 +233,7 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         assert user.id == valid_user_id
         assert user.username == valid_username
@@ -230,7 +245,7 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         updated_user = user.record_successful_login()
         assert updated_user is not user
@@ -241,7 +256,7 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         for _ in range(5):
             user = user.record_failed_login_attempt(max_attempts=5)
@@ -253,7 +268,7 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         verified = user.mark_email_verified()
         assert verified.email_verification.is_verified
@@ -264,7 +279,7 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         deleted = user.delete()
         assert deleted.is_deleted()
@@ -277,14 +292,25 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
-        enabled = user.enable_two_factor(TwoFactorAuth())
+        two_factor = TwoFactorAuth()
+        pending, backup_codes = user.begin_two_factor_enrolment(two_factor)
+        assert pending.two_factor_secret is not None
+        assert len(backup_codes) == 10
+        assert pending.has_two_factor() is False, 'enrolment is not active until confirmed'
+
+        code = pyotp.TOTP(pending.two_factor_secret.secret).now()
+        enabled = pending.confirm_two_factor(code, two_factor)
         assert enabled.two_factor_secret is not None
         assert enabled.two_factor_secret.enabled_at is not None
 
     def test_verify_two_factor_backup_code_is_consumed(
-        self, valid_user_id, valid_username, valid_email, hashed_password,
+        self,
+        valid_user_id,
+        valid_username,
+        valid_email,
+        hashed_password,
     ):
         from infrastructure.two_factor import TwoFactorAuth
 
@@ -294,13 +320,21 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
-        ).enable_two_factor(two_factor)
-        code = user.two_factor_secret.backup_codes[0]
+            verification_token='test_token',
+        )
+        user, backup_codes = user.begin_two_factor_enrolment(two_factor)
+        assert user.two_factor_secret is not None
+        user = user.confirm_two_factor(pyotp.TOTP(user.two_factor_secret.secret).now(), two_factor)
+        code = backup_codes[0]
 
         success, updated = user.verify_two_factor(code, two_factor)
         assert success is True
-        assert code not in updated.two_factor_secret.backup_codes
+        assert updated.two_factor_secret is not None
+        assert user.two_factor_secret is not None
+        assert (
+            updated.two_factor_secret.remaining_backup_codes()
+            == user.two_factor_secret.remaining_backup_codes() - 1
+        )
 
         # The same code must not verify again against the updated user.
         replay_success, _ = updated.verify_two_factor(code, two_factor)
@@ -312,17 +346,24 @@ class TestUserAggregate:
             username=valid_username,
             email=valid_email,
             hashed_password=hashed_password,
-            verification_token="test_token",
+            verification_token='test_token',
         )
         reset_user = user.request_password_reset()
         assert reset_user.password_reset_token is not None
-        
-        new_password = HashedPassword(b"new_hashed")
-        reset_complete = reset_user.reset_password(
-            reset_user.password_reset_token.token,
-            new_password
+
+        # Only the hash is kept, so the raw token has to come from the emitted event — which
+        # is the one and only place it exists.
+        raw_token = next(
+            event.reset_token
+            for event in reset_user.pull_events()
+            if isinstance(event, PasswordResetRequestedEvent)
         )
+        assert reset_user.password_reset_token.token_hash.to_raw() != raw_token.encode()
+
+        new_password = HashedPassword(b'new_hashed')
+        reset_complete = reset_user.reset_password(raw_token, new_password)
         assert reset_complete.hashed_password == new_password
+        assert reset_complete.password_reset_token is not None
         assert reset_complete.password_reset_token.is_used
 
 
@@ -330,7 +371,7 @@ class TestSessionAggregate:
     def test_create_session(self):
         session = SessionAggregate.create(
             user_id=UserID(uuid4()),
-            device_info=DeviceInfo(user_agent="test", ip_address="127.0.0.1"),
+            device_info=DeviceInfo(user_agent='test', ip_address='127.0.0.1'),
         )
         assert session.session_id is not None
         assert session.is_valid()
@@ -351,7 +392,7 @@ class TestSessionAggregate:
             device_info=DeviceInfo(),
         )
         token = RefreshToken(
-            token_hash=TokenHash(b"token_hash"),
+            token_hash=TokenHash(b'token_hash'),
             expires_at=datetime.now(UTC) + timedelta(days=7),
         )
         updated = session.add_refresh_token(token)
@@ -375,7 +416,7 @@ class TestSessionAggregate:
         )
         token = RefreshToken(
             id=uuid4(),
-            token_hash=TokenHash(b"token_hash"),
+            token_hash=TokenHash(b'token_hash'),
             expires_at=datetime.now(UTC) + timedelta(days=7),
         )
         session = session.add_refresh_token(token)
@@ -420,47 +461,50 @@ class TestValueObjects:
         assert user_id.to_raw() is not None
 
     def test_username_to_raw(self):
-        username = Username("testuser")
-        assert username.to_raw() == "testuser"
+        username = Username('testuser')
+        assert username.to_raw() == 'testuser'
 
     def test_email_to_raw(self):
-        email = Email("test@example.com")
-        assert email.to_raw() == "test@example.com"
+        email = Email('test@example.com')
+        assert email.to_raw() == 'test@example.com'
 
     def test_plain_password_to_raw(self):
-        password = PlainPassword("Test@1234")
-        assert password.to_raw() == "Test@1234"
+        password = PlainPassword('Test@1234')
+        assert password.to_raw() == 'Test@1234'
 
     def test_hashed_password_to_raw(self):
-        password = HashedPassword(b"hashed")
-        assert password.to_raw() == b"hashed"
+        password = HashedPassword(b'hashed')
+        assert password.to_raw() == b'hashed'
 
 
 class TestDomainErrorStatusCodes:
     """BaseAppError.status defaults to 500; every BaseDomainError subclass must override it,
     or it silently ships as an Internal Server Error instead of its real 4xx."""
 
-    @pytest.mark.parametrize(('exc_cls', 'expected_status'), [
-        (UserIsDeletedError, 403),
-        (UsernameAlreadyExistsError, 409),
-        (EmailAlreadyExistsError, 409),
-        (InvalidCredentialsError, 401),
-        (UserNotFoundError, 404),
-        (InvalidTokenError, 400),
-        (AccountLockedError, 423),
-        (EmailNotVerifiedError, 403),
-        (PasswordResetExpiredError, 400),
-        (PermissionDeniedError, 403),
-        (RoleNotFoundError, 404),
-        (RoleAlreadyExistsError, 409),
-        (WrongEmailValueError, 400),
-        (WrongPasswordValueError, 400),
-        (WrongRoleIDError, 400),
-        (WrongRoleNameError, 400),
-        (WrongTokenHashError, 400),
-        (WrongUserIDError, 400),
-        (WrongUsernameValueError, 400),
-        (WrongPermissionNameError, 400),
-    ])
+    @pytest.mark.parametrize(
+        ('exc_cls', 'expected_status'),
+        [
+            (UserIsDeletedError, 403),
+            (UsernameAlreadyExistsError, 409),
+            (EmailAlreadyExistsError, 409),
+            (InvalidCredentialsError, 401),
+            (UserNotFoundError, 404),
+            (InvalidTokenError, 400),
+            (AccountLockedError, 423),
+            (EmailNotVerifiedError, 403),
+            (PasswordResetExpiredError, 400),
+            (PermissionDeniedError, 403),
+            (RoleNotFoundError, 404),
+            (RoleAlreadyExistsError, 409),
+            (WrongEmailValueError, 400),
+            (WrongPasswordValueError, 400),
+            (WrongRoleIDError, 400),
+            (WrongRoleNameError, 400),
+            (WrongTokenHashError, 400),
+            (WrongUserIDError, 400),
+            (WrongUsernameValueError, 400),
+            (WrongPermissionNameError, 400),
+        ],
+    )
     def test_domain_error_has_expected_http_status(self, exc_cls, expected_status):
         assert exc_cls.status == expected_status

@@ -1,11 +1,11 @@
-from typing import final
 from dataclasses import dataclass
-from uuid import UUID
+from datetime import UTC, datetime
+from typing import final
 
 from application.common.exceptions import TooManyLoginAttemptsError
 from application.common.interfaces import RateLimiterInterface, UnitOfWorkInterface
 from application.user.services import UserService
-from domain.user.value_objects import Email, PlainPassword, UserID
+from domain.user.value_objects import Email, PlainPassword
 
 
 @dataclass
@@ -31,26 +31,22 @@ class RequestPasswordResetUseCase:
         self._uow = uow
         self._rate_limiter = rate_limiter
 
-    async def __call__(self, input: RequestPasswordResetInput) -> RequestPasswordResetOutput:
-        if input.ip_address:
-            allowed, _, _ = await self._rate_limiter.check(f'password-reset-request:{input.ip_address}')
-            if not allowed:
-                raise TooManyLoginAttemptsError()
+    async def __call__(self, data: RequestPasswordResetInput) -> RequestPasswordResetOutput:
+        if data.ip_address:
+            limit = await self._rate_limiter.check(f'password-reset-request:{data.ip_address}')
+            if not limit.allowed:
+                raise TooManyLoginAttemptsError(limit.retry_after_seconds(datetime.now(UTC)))
 
-        user = await self._user_service.request_password_reset(
-            Email(input.email),
-        )
+        _ = await self._user_service.request_password_reset(Email(data.email))
+        await self._uow.commit()
 
-        if user:
-            self._uow.add_events(user.pull_events())
-            await self._uow.commit()
-
+        # Always reports success: telling the caller whether the address exists would turn
+        # this endpoint into an account-enumeration oracle.
         return RequestPasswordResetOutput(success=True)
 
 
 @dataclass
 class ResetPasswordInput:
-    user_id: str
     token: str
     new_password: str
     ip_address: str | None = None
@@ -73,19 +69,17 @@ class ResetPasswordUseCase:
         self._uow = uow
         self._rate_limiter = rate_limiter
 
-    async def __call__(self, input: ResetPasswordInput) -> ResetPasswordOutput:
-        if input.ip_address:
-            allowed, _, _ = await self._rate_limiter.check(f'password-reset-confirm:{input.ip_address}')
-            if not allowed:
-                raise TooManyLoginAttemptsError()
+    async def __call__(self, data: ResetPasswordInput) -> ResetPasswordOutput:
+        if data.ip_address:
+            limit = await self._rate_limiter.check(f'password-reset-confirm:{data.ip_address}')
+            if not limit.allowed:
+                raise TooManyLoginAttemptsError(limit.retry_after_seconds(datetime.now(UTC)))
 
-        user = await self._user_service.reset_password(
-            user_id=UserID(UUID(input.user_id)),
-            token=input.token,
-            new_password=PlainPassword(input.new_password),
+        _ = await self._user_service.reset_password(
+            token=data.token,
+            new_password=PlainPassword(data.new_password),
         )
 
-        self._uow.add_events(user.pull_events())
         await self._uow.commit()
 
         return ResetPasswordOutput(success=True)

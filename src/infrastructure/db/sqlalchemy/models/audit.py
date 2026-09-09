@@ -8,6 +8,7 @@ AUDIT_LOGS_TABLE = create_table(
     sa.Column('action', sa.String, nullable=False, index=True),
     sa.Column('entity_type', sa.String, nullable=False),
     sa.Column('entity_id', sa.UUID(as_uuid=True), nullable=True),
+    sa.Index('ix_audit_logs_entity', 'entity_type', 'entity_id'),
     sa.Column('details', sa.JSON, nullable=False),
     sa.Column('ip_address', sa.String, nullable=True),
     sa.Column('user_agent', sa.String, nullable=True),

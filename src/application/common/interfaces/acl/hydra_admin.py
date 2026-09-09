@@ -16,7 +16,7 @@ class HydraClient(_HydraModel):
     grant_types: list[str] = Field(default_factory=list)
     response_types: list[str] = Field(default_factory=list)
     scope: list[str] = Field(default_factory=list)
-    token_endpoint_auth_method: str = 'client_secret_basic'
+    token_endpoint_auth_method: str = 'client_secret_basic'  # noqa: S105 - an OAuth2 auth-method name, not a secret
     created_at: str | None = None
 
     @field_validator('scope', mode='before')
@@ -37,6 +37,15 @@ class HydraClientCreate(_HydraModel):
     client_uri: str | None = None
     client_id: str | None = None
     client_secret: str | None = None
+
+
+class ProviderClientNotFoundError(Exception):
+    """The upstream authorization server has no such client.
+
+    Declared on the port rather than reusing the Hydra client's own exception: catching an
+    infrastructure class in a use case is the dependency rule pointing the wrong way, and it
+    would make swapping the provider a change to the application layer.
+    """
 
 
 class HydraAdminClientInterface(Protocol):

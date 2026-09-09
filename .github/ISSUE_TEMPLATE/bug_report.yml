@@ -1,0 +1,53 @@
+name: Bug report
+description: Something behaves differently from what it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what happened, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: >
+        The smallest sequence that shows it. A failing test, a curl command or a Bruno request
+        is ideal.
+      placeholder: |
+        1. POST /v1/users/register with …
+        2. POST /v1/users/login with …
+        3. The response is 500 instead of 401
+    validations:
+      required: true
+
+  - type: input
+    id: hydra
+    attributes:
+      label: Ory Hydra version
+      placeholder: v26.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-run
+    attributes:
+      label: How are you running it
+      options:
+        - docker compose (make build)
+        - locally with uv
+        - something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant log lines. Set `LOG_FORMAT=json` and include the `request_id` if you have it.
+        Redact tokens and secrets.
+      render: text

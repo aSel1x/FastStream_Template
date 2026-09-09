@@ -1,6 +1,7 @@
 from typing import override
 
 import pyotp
+
 from domain.user.interfaces import TwoFactorInterface
 
 
@@ -10,7 +11,9 @@ class TwoFactorAuth(TwoFactorInterface):
         return pyotp.random_base32()
 
     @override
-    def get_provisioning_uri(self, secret: str, username: str, issuer: str = 'BackendTemplate') -> str:
+    def get_provisioning_uri(
+        self, secret: str, username: str, issuer: str = 'BackendTemplate'
+    ) -> str:
         return pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=issuer)
 
     @override

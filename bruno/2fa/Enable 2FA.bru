@@ -11,8 +11,10 @@ post {
 }
 
 docs {
-  Returns `secret`, `backup_codes`, and `provisioning_uri` — paste the `provisioning_uri`
-  into any TOTP app (Google Authenticator, Authy, ...) or a QR-code generator to scan it,
-  then use the 6-digit code it produces in `Verify 2FA`. Next password login through
-  `oidc/1`'s form will then ask for a 2FA code too.
+  Starts enrolment. Returns `secret`, `backup_codes` and `provisioning_uri` — paste the
+  provisioning URI into any TOTP app, or into a QR-code generator to scan it.
+
+  **The factor is not active yet.** Confirm it with a code from the app via `Confirm 2FA`.
+  Only the hashes of the recovery codes are stored, so this response is the one and only
+  time you can read them.
 }

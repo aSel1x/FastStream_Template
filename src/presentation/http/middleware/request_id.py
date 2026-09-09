@@ -1,20 +1,23 @@
 import uuid
 from typing import final, override
-from contextvars import ContextVar
 
-from opentelemetry import trace
 from litestar.middleware.base import MiddlewareProtocol
-from litestar.types import ASGIApp, Message, Receive, Send, Scope
+from litestar.types import ASGIApp, Message, Receive, Scope, Send
+from opentelemetry import trace
 
-request_id_var: ContextVar[str] = ContextVar('request_id', default='')
+from infrastructure.observability.request_context import get_request_id, set_request_id
 
-
-def get_request_id() -> str:
-    return request_id_var.get()
+__all__ = ('RequestIDMiddleware', 'get_request_id')
 
 
 @final
 class RequestIDMiddleware(MiddlewareProtocol):
+    """Propagates `X-Request-ID`, minting one when the caller did not send it.
+
+    The id lands in a ContextVar, on the current span, and on the response, so a log line,
+    a trace and a client-side report can all be tied to the same request.
+    """
+
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
@@ -24,10 +27,9 @@ class RequestIDMiddleware(MiddlewareProtocol):
         headers_dict = dict(headers_list)
         request_id = headers_dict.get(b'x-request-id', str(uuid.uuid4()).encode()).decode()
 
-        new_headers: list[tuple[bytes, bytes]] = [*headers_list, (b'x-request-id', request_id.encode())]
-        scope['headers'] = new_headers
+        scope['headers'] = [*headers_list, (b'x-request-id', request_id.encode())]
 
-        _ = request_id_var.set(request_id)
+        set_request_id(request_id)
         trace.get_current_span().set_attribute('request_id', request_id)
 
         async def send_wrapper(message: Message) -> None:

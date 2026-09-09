@@ -1,0 +1,48 @@
+[importlinter]
+include_external_packages = True
+root_packages =
+    domain
+    application
+    infrastructure
+    presentation
+
+[importlinter:contract:layers]
+name = Dependencies point inward only
+type = layers
+layers =
+    presentation
+    infrastructure
+    application
+    domain
+
+[importlinter:contract:domain-is-framework-free]
+name = The domain layer knows about no framework
+type = forbidden
+source_modules =
+    domain
+forbidden_modules =
+    litestar
+    sqlalchemy
+    pydantic
+    httpx
+    redis
+    faststream
+    aio_pika
+    alembic
+    prometheus_client
+    opentelemetry
+
+[importlinter:contract:application-is-framework-free]
+name = The application layer knows about no framework
+type = forbidden
+source_modules =
+    application
+forbidden_modules =
+    litestar
+    sqlalchemy
+    httpx
+    redis
+    faststream
+    aio_pika
+    alembic
+    prometheus_client

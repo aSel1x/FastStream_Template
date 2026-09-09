@@ -1,4 +1,3 @@
-import re
 from dataclasses import dataclass
 from typing import ClassVar, override
 
@@ -6,10 +5,24 @@ from domain.common.exceptions import BaseDomainError
 from domain.common.value_object import ValueObject
 
 MIN_PASSWORD_LENGTH = 8
-MAX_PASSWORD_LENGTH = 128
-PASSWORD_PATTERN = re.compile(
-    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$'
-)
+# bcrypt raises on inputs longer than 72 *bytes* rather than truncating them, so anything
+# above this is a 500 at registration. Note that 36 Cyrillic characters already reach it.
+MAX_PASSWORD_BYTES = 72
+
+
+def _has_required_mix(value: str) -> bool:
+    """Whether the password mixes cases, a digit and a symbol.
+
+    Deliberately checked with Unicode-aware predicates rather than an `[A-Za-z\\d@$!%*?&]`
+    allow-list. NIST SP 800-63B advises against composition rules that reject characters, and
+    an allow-list silently rejects passphrases with spaces and every non-Latin script.
+    """
+    return (
+        any(char.islower() for char in value)
+        and any(char.isupper() for char in value)
+        and any(char.isdigit() for char in value)
+        and any(not char.isalnum() for char in value)
+    )
 
 
 @dataclass(eq=False)
@@ -41,7 +54,7 @@ class PasswordTooLongError(WrongPasswordValueError):
     @property
     @override
     def detail(self) -> str:
-        return f'Password must be at most {MAX_PASSWORD_LENGTH} characters long'
+        return f'Password must be at most {MAX_PASSWORD_BYTES} bytes long'
 
 
 class PasswordTooWeakError(WrongPasswordValueError):
@@ -49,8 +62,8 @@ class PasswordTooWeakError(WrongPasswordValueError):
     @override
     def detail(self) -> str:
         return (
-            'Password must contain at least one lowercase letter, '
-            'one uppercase letter, one digit, and one special character (@$!%*?&)'
+            'Password must contain at least one lowercase letter, one uppercase letter, '
+            'one digit, and one non-alphanumeric character'
         )
 
 
@@ -64,9 +77,9 @@ class PlainPassword(ValueObject[str]):
             raise EmptyPasswordError(self.value)
         if len(self.value) < MIN_PASSWORD_LENGTH:
             raise PasswordTooShortError(self.value)
-        if len(self.value) > MAX_PASSWORD_LENGTH:
+        if len(self.value.encode('utf-8')) > MAX_PASSWORD_BYTES:
             raise PasswordTooLongError(self.value)
-        if not PASSWORD_PATTERN.match(self.value):
+        if not _has_required_mix(self.value):
             raise PasswordTooWeakError(self.value)
 
 

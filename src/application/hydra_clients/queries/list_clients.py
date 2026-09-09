@@ -1,5 +1,5 @@
-from typing import final
 from dataclasses import dataclass
+from typing import final
 
 from application.common.interfaces import HydraAdminClientInterface
 
@@ -30,7 +30,7 @@ class ListOAuthClientsUseCase:
                 redirect_uris=c.redirect_uris,
                 grant_types=c.grant_types,
                 scopes=c.scope,
-                is_confidential=c.token_endpoint_auth_method != 'none',
+                is_confidential=c.token_endpoint_auth_method != 'none',  # noqa: S105 - an OAuth2 auth-method name, not a secret
             )
             for c in clients
         ]
