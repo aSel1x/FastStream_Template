@@ -73,7 +73,7 @@ jobs:
         run: uv run pytest tests --cov --cov-report=term-missing --cov-report=xml
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml
